@@ -3,10 +3,10 @@
   "version": "0.1.1",
   "description": "Official router for wia",
   "main": "dist/router.js",
+  "module": "dist/router.esm.js",
   "types": "dist/router.d.ts",
   "scripts": {
-    "cjs": "cross-env BUILD_ENV=cjs gulp build",
-    "esm": "cross-env BUILD_ENV=esm gulp build",
+    "build": "cross-env NODE_ENV=production gulp build",
     "build-dev": "cross-env NODE_ENV=development gulp build"
   },
   "repository": {
@@ -45,7 +45,8 @@
     "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-replace": "^2.2.0"
+    "rollup-plugin-replace": "^2.2.0",
+    "terser": "^4.4.0"		
   },
   "dependencies": {
 	}

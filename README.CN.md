@@ -1,3 +1,5 @@
+English | [简体中文](./README.CN.md)
+
 # wia router
 
 ## 简介
@@ -16,6 +18,52 @@
 - 支持网址参数传递数据
 - 基于 Hash 页内跳转模式，无需刷新整个页面，实现高速切换
 - 页面 html 标签 id、样式、代码自动隔离，重名不冲突
+
+## 编译构建
+
+需要安装 Node.js，通过命令行进入当前项目路径。
+
+运行以下指令，安装项目依赖包
+
+```bash
+$ npm install
+```
+
+生成开发版本:
+
+```bash
+$ npm run build-dev
+```
+
+生成文件如下:
+
+1. dist/router.common.js
+2. dist/router.common.map
+3. dist/router.esm.js
+4. dist/router.esm.map
+5. dist/router.umd.js
+6. dist/router.umd.map
+
+生成生产版本 (混淆最小化) :
+
+```bash
+$ npm run build
+```
+
+生成文件如下:
+
+1. dist/router.common.js
+2. dist/router.common.min.js
+3. dist/router.esm.js
+4. dist/router.esm.min.js
+5. dist/router.umd.js
+6. dist/router.umd.min.js
+
+## 使用
+
+```js
+  import Router from @wiajs/router
+```
 
 ## hash
 
@@ -222,11 +270,11 @@ Dom 对象，类似 jQuery，使用 dom 库封装的方法操作。
 7. 刷新：如果不需要缓存，在 go 和 back 中的参数 refresh 设置 true。
    刷新后，如果该页面之前已经访问过，直接删除缓存，按完全新的 page，重新加载。
 
-## Stay In Touch
+## 社交媒体
 
 - For latest releases and announcements, follow on Twitter: [@wiajs](https://twitter.com/wiajs)
 
-## License
+## 版权
 
 [MIT](http://opensource.org/licenses/MIT)
 

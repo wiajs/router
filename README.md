@@ -1,3 +1,5 @@
+English | [简体中文](./README.CN.md)
+
 # wia router
 
 ## Introduction
@@ -11,11 +13,49 @@
 - Links with automatic active CSS classes
 - Hash mode
 
+## Build
+
+You will need Node.js installed on your system.
+
+First, install all required dependencies
+
+```bash
+$ npm install
+```
+
+To build development version:
+
+```bash
+$ npm run build-dev
+```
+
+The resulting files are:
+
+1. dist/router.common.js
+2. dist/router.common.map
+3. dist/router.esm.js
+4. dist/router.esm.map
+5. dist/router.umd.js
+6. dist/router.umd.map
+
+To build production (minified) version:
+
+```bash
+$ npm run build
+```
+
+The resulting files are:
+
+1. dist/router.common.js
+2. dist/router.common.min.js
+3. dist/router.esm.js
+4. dist/router.esm.min.js
+5. dist/router.umd.js
+6. dist/router.umd.min.js
+
 ## hash
 
 ## Page Jump
-
-## 2018-07-12
 
 ## Life cycle of page
 
@@ -74,17 +114,9 @@ function bind() {
 
 ### Parameters
 
-## 2019-04-11
-
-## 2020-02-01
-
 ### go accpts three types of router parameters
 
-## 2020-02-20
-
 ### css Requirements
-
-## 2020-02-21
 
 ### Data Interchange
 
