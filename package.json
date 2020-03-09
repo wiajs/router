@@ -1,6 +1,6 @@
 {
   "name": "@wiajs/router",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Official router for wia",
   "main": "dist/router.js",
   "module": "dist/router.esm.js",
