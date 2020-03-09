@@ -4,6 +4,10 @@ const zlib = require('zlib');
 const terser = require('terser');
 const rollup = require('rollup');
 
+const env = process.env.NODE_ENV || 'development';
+
+const isProd = env === 'production';
+
 function build(cfg, cb) {
   let built = 0;
   const total = cfg.length;
@@ -22,14 +26,15 @@ function build(cfg, cb) {
 
 function buildEntry({input, output}) {
   const {file, banner} = output;
-  const isProd = /min\.js$/.test(file);
   return rollup
     .rollup(input)
-    .then(bundle => bundle.generate(output))
+    .then(bundle => bundle.write(output)) // bundle.generate(output))
     .then(bundle => {
       // console.log(bundle)
       const {code} = bundle.output[0];
-      if (isProd) {
+      report(code, file);
+
+      if (isProd && output.format === 'umd') {
         const minified =
           // (banner ? banner + '\n' : '') +
           terser.minify(code, {
@@ -41,34 +46,36 @@ function buildEntry({input, output}) {
               pure_funcs: ['makeMap'],
             },
           }).code;
-        return write(file, minified, true);
-      } else {
-        return write(file, code);
+        return write(file.replace('.js', '.min.js'), minified, true);
       }
+      // else {
+      //   return write(file, code);
+      // }
     });
+}
+
+function report(code, dest, extra) {
+  console.log(
+    blue(path.relative(process.cwd(), dest)) +
+      ' ' +
+      getSize(code) +
+      (extra || '')
+  );
 }
 
 function write(dest, code, zip) {
   return new Promise((resolve, reject) => {
-    function report(extra) {
-      console.log(
-        blue(path.relative(process.cwd(), dest)) +
-          ' ' +
-          getSize(code) +
-          (extra || '')
-      );
-      resolve();
-    }
-
     fs.writeFile(dest, code, err => {
       if (err) return reject(err);
       if (zip) {
         zlib.gzip(code, (err, zipped) => {
           if (err) return reject(err);
-          report(' (gzipped: ' + getSize(zipped) + ')');
+          report(code, dest, ' (gzipped: ' + getSize(zipped) + ')');
+          resolve();
         });
       } else {
-        report();
+        report(code, dest);
+        resolve();
       }
     });
   });

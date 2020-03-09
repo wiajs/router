@@ -1,6 +1,6 @@
 const path = require('path');
 const babel = require('rollup-plugin-babel');
-const buble = require('rollup-plugin-buble');
+// const buble = require('rollup-plugin-buble');
 const cjs = require('rollup-plugin-commonjs');
 const node = require('rollup-plugin-node-resolve');
 const replace = require('rollup-plugin-replace');
@@ -18,12 +18,6 @@ module.exports = [
   {
     file: resolve('dist/router.umd.js'),
     format: 'umd',
-    env: 'development',
-  },
-  {
-    file: resolve('dist/router.umd.min.js'),
-    format: 'umd',
-    env: 'production',
   },
   {
     file: resolve('dist/router.common.js'),
@@ -32,19 +26,7 @@ module.exports = [
   {
     file: resolve('dist/router.js'),
     format: 'es',
-  },
-  {
-    file: resolve('dist/router.esm.browser.js'),
-    format: 'es',
-    env: 'development',
-    transpile: false,
-  },
-  {
-    file: resolve('dist/router.esm.browser.min.js'),
-    format: 'es',
-    env: 'production',
-    transpile: false,
-  },
+  }
 ].map(genConfig);
 
 function genConfig(opts) {
@@ -64,18 +46,11 @@ function genConfig(opts) {
     output: {
       file: opts.file,
       format: opts.format,
+      sourcemap: process.env.NODE_ENV === 'development',
       banner,
       name: 'WiaRouter',
     },
   };
-
-  if (opts.env) {
-    config.input.plugins.unshift(
-      replace({
-        'process.env.NODE_ENV': JSON.stringify(opts.env),
-      })
-    );
-  }
 
   // if (opts.transpile !== false) {
   //   config.input.plugins.push(

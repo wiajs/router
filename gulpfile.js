@@ -1,7 +1,7 @@
 const fs = require('fs');
 const gulp = require('gulp');
 const build = require('./build');
-const configs = require('./rollup.config');
+const configs = require('./config');
 
 const env = process.env.NODE_ENV || 'development';
 const src = './src';
