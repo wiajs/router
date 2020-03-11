@@ -1,6 +1,6 @@
 /**
  * 开放、互联 前端路由
- * Released on: September 13,2016
+ * First Version Released on: September 13,2016
  */
 
 // 动画方式切换
@@ -814,4 +814,4 @@ $.back = (refresh = false) => {
   $.router.back();
 };
 
-export default Router;
+export {Router};

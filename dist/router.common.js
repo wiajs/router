@@ -5,23 +5,43 @@
   */
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
+function _extends() {
+  _extends = Object.assign || function (target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i];
+
+      for (var key in source) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          target[key] = source[key];
+        }
+      }
+    }
+
+    return target;
+  };
+
+  return _extends.apply(this, arguments);
+}
+
 /**
  * 开放、互联 前端路由
- * Released on: September 13
+ * First Version Released on: September 13,2016
  */
 // 动画方式切换
 // import $ from '@wiajs/dom';
 
 /* global
-
-*/
-// const $ = window.$;
-let location = window.location; // eslint-disable-line
+ */
+var location = window.location; // eslint-disable-line
 /**
  * a very simple router for the **demo** of [weui](https://github.com/weui/weui)
  */
 
-class Router {
+var Router =
+/*#__PURE__*/
+function () {
   // default option
   // container element
   // 存放所有路由对象
@@ -35,7 +55,9 @@ class Router {
    * constructor
    * @param opts
    */
-  constructor(opts) {
+  function Router(opts) {
+    var _this = this;
+
     this.opt = {
       view: 'wia-view',
       style: 'wia-style',
@@ -64,7 +86,9 @@ class Router {
     this.hash = [];
     this.splash = false;
 
-    this.getCurrentPage = () => $.qu(`.${this.opt.showClass}`);
+    this.getCurrentPage = function () {
+      return $.qu("." + _this.opt.showClass);
+    };
 
     // if (Router.instance) {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
@@ -73,7 +97,7 @@ class Router {
     this.opt = $.assign({}, this.opt, opts);
     this.app = this.opt.app;
     this.app.router = this;
-    this.view = $(`#${this.opt.view}`);
+    this.view = $("#" + this.opt.view);
     this.style = null; // 新增样式 $.id(this.opt.style);
 
     this.lastStyle = null; // 即将清除的上一个样式
@@ -100,11 +124,11 @@ class Router {
     // 不带 hash 到 hash,返回时, 不能触发该事件,因此一开始就要设置 hash,否则无法回到 首页!
     // 监控url hash变化
 
-    window.addEventListener('hashchange', event => {
-      const newHash = getHash(event.newURL);
-      const oldHash = getHash(event.oldURL); // ???
+    window.addEventListener('hashchange', function (event) {
+      var newHash = getHash(event.newURL);
+      var oldHash = getHash(event.oldURL); // ???
 
-      console.log(`router hash:${oldHash} -> ${newHash}`); // 如果不是绝对路径，则跳转到绝对路径
+      console.log("router hash:" + oldHash + " -> " + newHash); // 如果不是绝对路径，则跳转到绝对路径
       // if (!newHash.startsWith('/')) {
       //   setHash(this.repairUrl(newHash));
       //   return;
@@ -112,34 +136,35 @@ class Router {
       // 无变化
 
       if (newHash === oldHash) {
-        this.nextHash = '';
+        _this.nextHash = '';
         return;
       } // 记录当前 hash
       // this.lastHash = oldHash;
       // this.hash = newHash;
 
 
-      this.backed = false; // 是否返回
+      _this.backed = false; // 是否返回
 
-      this.hash = this.hash || [];
-      const hs = this.hash;
+      _this.hash = _this.hash || [];
+      var hs = _this.hash;
 
       if (!hs || hs.length === 0 || hs.length > 0 && hs[hs.length - 1] !== newHash) {
-        if (hs.length > 0) console.log(`hash:${hs[hs.length - 1]} -> ${newHash}`);else console.log(`hash:null -> ${newHash}`);
+        if (hs.length > 0) console.log("hash:" + hs[hs.length - 1] + " -> " + newHash);else console.log("hash:null -> " + newHash);
         hs.push(newHash);
       } else if (hs.length > 1 && hs[hs.length - 2] === newHash) {
-        this.backed = true;
-        console.log(`back hash:${hs[hs.length - 2]} <- ${newHash}`);
+        _this.backed = true;
+        console.log("back hash:" + hs[hs.length - 2] + " <- " + newHash);
         hs.pop();
-      } else if (hs.length > 0 && hs[hs.length - 1] === newHash) console.log(`same hash: ${newHash}`); // const state = history.state || {};
+      } else if (hs.length > 0 && hs[hs.length - 1] === newHash) console.log("same hash: " + newHash); // const state = history.state || {};
       // this.to(hash, state._index <= this._index);
 
 
-      this.routeTo(hs[hs.length - 1], this.param, this.refresh); //  , oldHash);
+      _this.routeTo(hs[hs.length - 1], _this.param, _this.refresh); //  , oldHash);
 
-      this.refresh = false;
-      this.param = null;
-      this.nextHash = '';
+
+      _this.refresh = false;
+      _this.param = null;
+      _this.nextHash = '';
     }, false);
   }
   /**
@@ -151,7 +176,17 @@ class Router {
    */
 
 
-  go(url, param = null, refresh = false) {
+  var _proto = Router.prototype;
+
+  _proto.go = function go(url, param, refresh) {
+    if (param === void 0) {
+      param = null;
+    }
+
+    if (refresh === void 0) {
+      refresh = false;
+    }
+
     // this._go = false;
 
     /*
@@ -189,30 +224,30 @@ class Router {
    * 也会自动切换到 https://app.nuoya.io/mall#!/nuoya/mall/home
    * @param {*} url
    */
+  ;
 
-
-  repairUrl(url) {
-    let R = url;
+  _proto.repairUrl = function repairUrl(url) {
+    var R = url;
 
     try {
-      if (url.startsWith('../')) R = url.replace(/\.\.\//, `/${this.opt.owner}/`);else if (!url.startsWith('/')) R = `${url}`; // `/${this.opt.owner}/${this.opt.name}/${url}`;
+      if (url.startsWith('../')) R = url.replace(/\.\.\//, "/" + this.opt.owner + "/");else if (!url.startsWith('/')) R = "" + url; // `/${this.opt.owner}/${this.opt.name}/${url}`;
     } catch (e) {
-      console.log(`router repairUrl exp:${e.message}`);
+      console.log("router repairUrl exp:" + e.message);
     }
 
-    if (R !== url) console.log(`router repairUrl:${url} -> ${R}`);
+    if (R !== url) console.log("router repairUrl:" + url + " -> " + R);
     return R;
-  }
+  };
 
-  back() {
+  _proto.back = function back() {
     window.history.back();
   }
   /**
    * 判断页面是否已经加载过
    */
+  ;
 
-
-  loaded(r) {
+  _proto.loaded = function loaded(r) {
     return $.id(r.id) || this.ps[r.id];
   }
   /**
@@ -221,104 +256,114 @@ class Router {
    * @param {*} path src目录下
    * 返回 promise
    */
+  ;
 
+  _proto.load = function load(path) {
+    var _this2 = this;
 
-  load(path) {
-    let R = null;
+    var R = null;
 
     try {
-      R = new Promise((res, rej) => {
-        console.log(`router load path:${path}`);
-        const pos = path.lastIndexOf('/');
-        const name = path.substr(pos + 1); // 本地调试状态，直接获取本地页面
+      R = new Promise(function (res, rej) {
+        console.log("router load path:" + path);
+        var pos = path.lastIndexOf('/');
+        var name = path.substr(pos + 1); // 本地调试状态，直接获取本地页面
 
-        if (this.opt.mode === 'local') {
+        if (_this2.opt.mode === 'local') {
           // debugger;
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
-          const htmlLoad = new Promise((resHtml, rejHtml) => {
-            const url = `${this.opt.local}/page/${name}.html?v=${Date.now()}`;
-            $.get(url).then(rs => {
+          var htmlLoad = new Promise(function (resHtml, rejHtml) {
+            var url = _this2.opt.local + "/page/" + name + ".html?v=" + Date.now();
+            $.get(url).then(function (rs) {
               // debugger;
               console.log('router load html:', {
-                url,
-                rs
+                url: url,
+                rs: rs
               }); // 获得模块对象
 
-              const Cls = __webpack_require__(`./src/page/${name}.js`); // eslint-disable-line
+              var Cls = __webpack_require__("./src/page/" + name + ".js"); // eslint-disable-line
 
 
-              const p = new Cls.default({
-                app: this.app
+              var p = new Cls.default({
+                app: _this2.app
               }); // eslint-disable-line
 
               p.html = rs;
               $.router.push(p);
               resHtml(p);
-            }, err => rejHtml(err));
+            }, function (err) {
+              return rejHtml(err);
+            });
           });
-          const cssLoad = new Promise((resCss, rejCss) => {
-            const url = `${this.opt.local}/page/${name}.css?v=${Date.now()}`; // console.log(`router load css:${url}`);
+          var cssLoad = new Promise(function (resCss, rejCss) {
+            var url = _this2.opt.local + "/page/" + name + ".css?v=" + Date.now(); // console.log(`router load css:${url}`);
 
-            $.get(url).then(rs => {
+            $.get(url).then(function (rs) {
               // debugger;
               console.log('router load css:', {
-                url,
-                rs
+                url: url,
+                rs: rs
               });
               resCss(rs);
-            }, err => rejCss(err));
+            }, function (err) {
+              return rejCss(err);
+            });
           });
-          Promise.all([htmlLoad, cssLoad]).then(rs => {
+          Promise.all([htmlLoad, cssLoad]).then(function (rs) {
             rs[0].css = rs[1];
             res(rs[0]);
-          }).catch(err => rej(err));
+          }).catch(function (err) {
+            return rej(err);
+          });
         } else {
-          path = `${path.substring(1, pos)}/page/${name}`; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
+          path = path.substring(1, pos) + "/page/" + name; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
 
-          const url = `${this.opt.cos}/${path}.js?v=${this.opt.ver}`;
-          console.log(`router load url:${url}`);
-          $.get(url).then(rs => {
+          var url = _this2.opt.cos + "/" + path + ".js?v=" + _this2.opt.ver;
+          console.log("router load url:" + url);
+          $.get(url).then(function (rs) {
             // debugger;
             console.log(rs);
-            const r = JSON.parse(rs);
+            var r = JSON.parse(rs);
 
             if (r && r.js) {
-              const k = Object.keys(r.js)[0];
-              const code = r.js[k];
+              var k = Object.keys(r.js)[0];
+              var code = r.js[k];
 
               $._m.add(r.js); // console.log(r.js);
 
 
-              const P = $._m(k); // 加载该模块
+              var P = $._m(k); // 加载该模块
 
 
-              const p = new P.default(); // eslint-disable-line
+              var p = new P.default(); // eslint-disable-line
 
               p.html = r.html;
               p.css = r.css;
               $.router.push(p);
               res(p);
             }
-          }, err => rej(err));
+          }, function (err) {
+            return rej(err);
+          });
         }
       });
     } catch (e) {
-      console.log(`load exp:${e.message}`);
+      console.log("load exp:" + e.message);
     }
 
     return R;
-  }
+  };
 
-  addCss(css) {
-    const el = document.createElement('style'); // el.id = 'wia-style-next';
+  _proto.addCss = function addCss(css) {
+    var el = document.createElement('style'); // el.id = 'wia-style-next';
 
     if (this.style) this.lastStyle = this.style;
     this.style = el;
     $('head').append(el);
     this.style.innerHTML = css;
-  }
+  };
 
-  removeCss() {
+  _proto.removeCss = function removeCss() {
     if (this.lastStyle && this.lastStyle.parentNode) this.lastStyle.parentNode.removeChild(this.lastStyle);
   }
   /**
@@ -327,17 +372,19 @@ class Router {
    * @param {Object} 参数对象
    * @returns {Router}
    */
+  ;
 
+  _proto.routeTo = function routeTo(url, param, refresh) {
+    var _this3 = this;
 
-  routeTo(url, param, refresh) {
-    let r = this.findRoute(url, param, refresh);
+    var r = this.findRoute(url, param, refresh);
     if (r) this.to(r, refresh);else {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
-      this.load(url).then(lr => {
+      this.load(url).then(function (lr) {
         // debugger;
-        r = this.findRoute(url, param, refresh);
-        if (r) this.to(r, refresh);
+        r = _this3.findRoute(url, param, refresh);
+        if (r) _this3.to(r, refresh);
       });
     }
   }
@@ -345,9 +392,11 @@ class Router {
    * 切换到指定页面
    * @param {*} r
    */
+  ;
 
+  _proto.to = function to(r, refresh) {
+    var _this4 = this;
 
-  to(r, refresh) {
     if (!r) {
       console.error('route to null page.');
       return this;
@@ -361,55 +410,58 @@ class Router {
     // 返回还是前进
 
     this.lasts = this.lasts || [];
-    const rs = this.lasts;
+    var rs = this.lasts;
     this.backed = false; // 如果切换的是前一个page，则为回退！
 
     if (rs.length > 1 && rs[rs.length - 2].id === r.id) {
       this.backed = true;
-      console.log(`to back id:${rs[rs.length - 2].id} <- ${r.id}`);
+      console.log("to back id:" + rs[rs.length - 2].id + " <- " + r.id);
       rs.pop();
     } else if (rs.length > 0 && rs[rs.length - 1].id === r.id) {
-      console.log(`to same id: ${r.id}`);
+      console.log("to same id: " + r.id);
     } else if (rs.length === 0 || rs.length > 0 && rs[rs.length - 1].id !== r.id) {
-      if (rs.length > 0) console.log(`to id:${rs[rs.length - 1].id} -> ${r.id}`);else console.log(`to id:null -> ${r.id}`);
+      if (rs.length > 0) console.log("to id:" + rs[rs.length - 1].id + " -> " + r.id);else console.log("to id:null -> " + r.id);
       rs.push(this.page);
     } // 进入跳转的页面
 
 
-    const enter = pg => {
+    var enter = function enter(pg) {
       r.doReady = false; // 页面上是否存在，已经隐藏
 
-      let p = $.id(r.id); // debugger;
+      var p = $.id(r.id); // debugger;
       // 页面上不存在，则从缓存获取，并加载到主页面
 
       if (!p) {
         // 从缓存加载
-        p = this.ps[r.id];
+        p = _this4.ps[r.id];
 
         if (!p && pg) {
           p = pg; // 缓存页面
 
-          this.ps[r.id] = p;
+          _this4.ps[r.id] = p;
           r.doReady = true;
         }
 
         if (p) {
           // back 插在前面
           // forward添加在后面，并移到左侧
-          if (this.view) {
+          if (_this4.view) {
             // this.style.href = r.style;
-            this.addCss(r.css); // 准备 css
+            _this4.addCss(r.css); // 准备 css
 
-            const $p = $(p);
 
-            if (this.backed && this.view.hasChild()) {
-              if (this.opt.className) $p.addClass(`${this.opt.className}`);
-              if (this.opt.prevClass) $p.addClass(`${this.opt.prevClass}`);
-              this.view.dom.insertBefore(p, this.view.dom.children[0]);
+            var $p = $(p);
+
+            if (_this4.backed && _this4.view.hasChild()) {
+              if (_this4.opt.className) $p.addClass("" + _this4.opt.className);
+              if (_this4.opt.prevClass) $p.addClass("" + _this4.opt.prevClass);
+
+              _this4.view.dom.insertBefore(p, _this4.view.dom.children[0]);
             } else {
-              if (this.opt.className) $p.addClass(`${this.opt.className}`);
-              if (this.opt.nextClass) $p.addClass(`${this.opt.nextClass}`);
-              this.view.dom.appendChild(p);
+              if (_this4.opt.className) $p.addClass("" + _this4.opt.className);
+              if (_this4.opt.nextClass) $p.addClass("" + _this4.opt.nextClass);
+
+              _this4.view.dom.appendChild(p);
             }
           }
 
@@ -422,14 +474,14 @@ class Router {
       // 应该判断 hash 是否已经改变，如已改变，则不切换
       // alert(`hash:${this.hash} => ${this.nextHash}`);
 
-      if (!this.nextHash || this.nextHash === this.hash[this.hash.length - 1]) {
-        this.switchPage(this.lastPage, r, this.backed);
+      if (!_this4.nextHash || _this4.nextHash === _this4.hash[_this4.hash.length - 1]) {
+        _this4.switchPage(_this4.lastPage, r, _this4.backed);
       }
     }; // 强制刷新，删除存在页面及缓存
 
 
     if (refresh) {
-      let p = $.id(r.id);
+      var p = $.id(r.id);
       if (p) $.remove(p); // 删除缓存
 
       p = this.ps[r.id];
@@ -437,11 +489,15 @@ class Router {
     } // 加载页面视图回调
 
 
-    const onload = (err, html = '') => {
+    var onload = function onload(err, html) {
+      if (html === void 0) {
+        html = '';
+      }
+
       if (err) throw err; // console.log('onload html:', html);
       // 创建 页面层
 
-      const p = document.createElement('div');
+      var p = document.createElement('div');
       p.id = r.id;
       p.innerHTML = html; // 缓存页面
       // this._pages[r.id] = p;
@@ -449,8 +505,8 @@ class Router {
       enter(p);
     };
 
-    const nextPage = this.loaded(r);
-    const curPage = this.getCurrentPage(); // 不存在则加载页面
+    var nextPage = this.loaded(r);
+    var curPage = this.getCurrentPage(); // 不存在则加载页面
 
     if (!nextPage) {
       onload(null, r.html); // if (r.load) // 加载视图
@@ -474,16 +530,16 @@ class Router {
    * 等同于页面 https://wia.pub/nuoya/mall/index.html#!home
    * @param {*} url
    */
+  ;
 
-
-  getPath(url) {
-    const R = {
+  _proto.getPath = function getPath(url) {
+    var R = {
       path: url
     };
 
     try {
       // 把?后面的内容作为 param参数处理，？需包含在hash中，也就是 # 之后
-      let pos = url.indexOf('?');
+      var pos = url.indexOf('?');
 
       if (pos >= 0) {
         R.path = url.substr(0, pos);
@@ -491,8 +547,8 @@ class Router {
 
         if (R.search) {
           R.param = {};
-          const ps = R.search.split('&');
-          ps.forEach(p => {
+          var ps = R.search.split('&');
+          ps.forEach(function (p) {
             pos = p.indexOf('=');
             if (pos > 0) R.param[p.substr(0, pos)] = p.substr(pos + 1);
           });
@@ -500,15 +556,15 @@ class Router {
       }
 
       if (R.path.startsWith('../')) {
-        R.path = R.path.replace('../', `/${this.opt.owner}/`);
+        R.path = R.path.replace('../', "/" + this.opt.owner + "/");
       } // else if (!R.path.startsWith('/'))
       //   R.path = `/${this.opt.owner}/${this.opt.name}/${R.path}`;
 
     } catch (e) {
-      console.log(`router getPath exp:${e.message}`);
+      console.log("router getPath exp:" + e.message);
     }
 
-    if (url !== R.path) console.log(`router getPath url:${url} -> ${R.path}`);
+    if (url !== R.path) console.log("router getPath url:" + url + " -> " + R.path);
     return R;
   }
   /**
@@ -517,17 +573,18 @@ class Router {
    * @param {Object} param
    * @returns {Object}
    */
+  ;
 
+  _proto.findRoute = function findRoute(url, param, refresh) {
+    var R = null;
+    var rs = this.getPath(url); // for (let i = 0, len = this.rs.length; i < len; i++) {
 
-  findRoute(url, param, refresh) {
-    let R = null;
-    const rs = this.getPath(url); // for (let i = 0, len = this.rs.length; i < len; i++) {
-
-    const r = this.rs.find(rt => rt.path === rs.path);
+    var r = this.rs.find(function (rt) {
+      return rt.path === rs.path;
+    });
 
     if (r) {
-      if (rs.param) r.param = { ...rs.param
-      };else r.param = {};
+      if (rs.param) r.param = _extends({}, rs.param);else r.param = {};
       if (param) $.assign(r.param, param); // 记录当前 path
 
       r.path = rs.path;
@@ -545,20 +602,22 @@ class Router {
    * @param {Object} r
    * @returns {Router}
    */
+  ;
 
-
-  push(r) {
+  _proto.push = function push(r) {
     try {
       if (!r) throw new Error('page is empty!');
       if (!r.path) throw new Error("page's path is empty!");
-      const exist = this.rs.find(rt => rt.path === r.path);
+      var exist = this.rs.find(function (rt) {
+        return rt.path === r.path;
+      });
 
       if (exist) {
-        console.info(`push r.path:${r.path} exist.`);
+        console.info("push r.path:" + r.path + " exist.");
         return;
       }
 
-      r.id = `page-${r.path.replace(/\//g, '-')}`; // 将 path 转换为绝对路径
+      r.id = "page-" + r.path.replace(/\//g, '-'); // 将 path 转换为绝对路径
       // r.path = `/${this.opt.owner}/${this.opt.name}/${r.path}`;
 
       r.ready = r.ready || $.noop;
@@ -572,10 +631,10 @@ class Router {
        */
 
       this.rs.push(r);
-      console.debug(`router push r.path:${r.path} succ.`);
+      console.debug("router push r.path:" + r.path + " succ.");
       return this;
     } catch (e) {
-      alert(`router.push exp: ${e.message}`);
+      alert("router.push exp: " + e.message);
     }
   }
   /**
@@ -586,13 +645,17 @@ class Router {
    * @param dir 切换的方向 forward backward
    * @private
    */
+  ;
 
+  _proto.aniPage = function aniPage(from, to, dir, cb) {
+    var _this5 = this;
 
-  aniPage(from, to, dir, cb) {
-    const aniClass = `router-transition-${dir || 'forward'} router-transition`;
-    to.animationEnd(() => {
+    var aniClass = "router-transition-" + (dir || 'forward') + " router-transition";
+    to.animationEnd(function () {
       console.log('animation.');
-      this.view.removeClass(aniClass); // from.removeClass('page-previous');
+
+      _this5.view.removeClass(aniClass); // from.removeClass('page-previous');
+
 
       if (cb) cb();
     });
@@ -606,14 +669,14 @@ class Router {
    * @returns {*}
    * @private
    */
-
+  ;
 
   /**
    * 显示新页面时，卸载当前页面，避免页面上相同id冲突
    * @param {*} r 卸载路由
    * @param {*} p 卸载页面
    */
-  hidePage(r, p) {
+  _proto.hidePage = function hidePage(r, p) {
     if (!p || !r) return; // 触发隐藏事件
 
     if (r.hide) r.hide(p);
@@ -631,9 +694,11 @@ class Router {
    * @param {*} r 当前路由
    * @param {*} p 当前页面
    */
+  ;
 
+  _proto.showPage = function showPage(r, p) {
+    var _this6 = this;
 
-  showPage(r, p) {
     if (p) {
       p.removeClass(this.opt.nextClass);
       p.removeClass(this.opt.prevClass);
@@ -645,15 +710,15 @@ class Router {
     if (r.doReady && r.ready) {
       // 如果不使用延时，加载无法获取dom节点坐标！
       //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
-      $.nextTick(() => {
-        r.ready(p, r.param, this.backed);
+      $.nextTick(function () {
+        r.ready(p, r.param, _this6.backed);
       }); // r.ready(p, r.param);
     } // 触发
 
 
     if (r.show) {
-      $.nextTick(() => {
-        r.show(p, r.param, this.backed);
+      $.nextTick(function () {
+        r.show(p, r.param, _this6.backed);
       });
     } // r.show(p, r.param);
     //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
@@ -670,17 +735,19 @@ class Router {
    * @param {String} back 是否返回
    * @private
    */
+  ;
 
+  _proto.switchPage = function switchPage(lastr, r, back) {
+    var _this7 = this;
 
-  switchPage(lastr, r, back) {
     if (!r) return;
-    let from = this.getCurrentPage();
+    var from = this.getCurrentPage();
     if (from) from = $(from);
-    let to = $.id(r.id);
+    var to = $.id(r.id);
     if (to) to = $(to); // 如果已经是当前页，不做任何处理
 
     if (from && to && from.dom === to.dom) return;
-    const dir = back ? 'backward' : 'forward';
+    var dir = back ? 'backward' : 'forward';
 
     if (from || to) {
       if (from && to) {
@@ -690,9 +757,10 @@ class Router {
           this.hidePage(lastr, from);
           this.showPage(r, to);
         } else {
-          this.aniPage(from, to, dir, () => {
-            this.hidePage(lastr, from);
-            this.showPage(r, to);
+          this.aniPage(from, to, dir, function () {
+            _this7.hidePage(lastr, from);
+
+            _this7.showPage(r, to);
           });
         }
       } else if (from) {
@@ -703,9 +771,10 @@ class Router {
     }
 
     setTitle(this.page.title); // this.pushNewState('#' + sectionId, sectionId);
-  }
+  };
 
-}
+  return Router;
+}();
 /**
  * 获取 url 的 fragment（即 hash 中去掉 # 的剩余部分）
  *
@@ -719,15 +788,15 @@ class Router {
 
 function getHash(url) {
   if (!url) return '';
-  let pos = url.indexOf('#!');
+  var pos = url.indexOf('#!');
   if (pos !== -1) pos++;else pos = url.indexOf('#');
   return pos !== -1 ? url.substring(pos + 1) : ''; // ??? '/'
 } // google 支持 #! 格式
 
 
 function setHash(url) {
-  let hash = url;
-  if (url[0] !== '!') hash = `!${url}`;
+  var hash = url;
+  if (url[0] !== '!') hash = "!" + url;
   location.hash = hash;
 }
 /**
@@ -739,16 +808,16 @@ function setTitle(val) {
   if (document.title === val) return;
 
   if (/MicroMessenger/i.test(navigator.userAgent)) {
-    setTimeout(() => {
+    setTimeout(function () {
       // 利用iframe的onload事件刷新页面
       document.title = val;
-      const fr = document.createElement('iframe'); // fr.style.visibility = 'hidden';
+      var fr = document.createElement('iframe'); // fr.style.visibility = 'hidden';
 
       fr.style.display = 'none';
       fr.src = 'img/favicon.ico';
 
-      fr.onload = () => {
-        setTimeout(() => {
+      fr.onload = function () {
+        setTimeout(function () {
           document.body.removeChild(fr);
         }, 0);
       };
@@ -758,13 +827,25 @@ function setTitle(val) {
   } else document.title = val;
 }
 
-$.go = (url, param = null, refresh = false) => {
+$.go = function (url, param, refresh) {
+  if (param === void 0) {
+    param = null;
+  }
+
+  if (refresh === void 0) {
+    refresh = false;
+  }
+
   $.router.go(url, param, refresh);
 };
 
-$.back = (refresh = false) => {
+$.back = function (refresh) {
+  if (refresh === void 0) {
+    refresh = false;
+  }
+
   $.router.refresh = refresh;
   $.router.back();
 };
 
-module.exports = Router;
+exports.Router = Router;

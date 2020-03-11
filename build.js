@@ -34,7 +34,7 @@ function buildEntry({input, output}) {
       const {code} = bundle.output[0];
       report(code, file);
 
-      if (isProd && output.format === 'umd') {
+      if (isProd) {
         const minified =
           // (banner ? banner + '\n' : '') +
           terser.minify(code, {
@@ -46,6 +46,7 @@ function buildEntry({input, output}) {
               pure_funcs: ['makeMap'],
             },
           }).code;
+
         return write(file.replace('.js', '.min.js'), minified, true);
       }
       // else {
