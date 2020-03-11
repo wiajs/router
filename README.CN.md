@@ -57,7 +57,7 @@ $ npm run build
 3. dist/router.esm.js
 4. dist/router.esm.min.js
 5. dist/router.umd.js
-6. dist/router.umd.min.js
+6. dist/router.min.js
 
 ## 使用
 
@@ -279,5 +279,3 @@ Dom 对象，类似 jQuery，使用 dom 库封装的方法操作。
 [MIT](http://opensource.org/licenses/MIT)
 
 Copyright (c) 2020-present Sibyl Yu
-
-## Special Thanks

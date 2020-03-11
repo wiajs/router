@@ -46,7 +46,12 @@ function buildEntry({input, output}) {
               pure_funcs: ['makeMap'],
             },
           }).code;
-        return write(file.replace('.js', '.min.js'), minified, true);
+
+        const f =
+          output.format === 'umd'
+            ? file.replace('.umd.js', '.min.js')
+            : file.replace('.js', '.min.js');
+        return write(f, minified, true);
       }
       // else {
       //   return write(file, code);
