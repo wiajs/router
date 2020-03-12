@@ -5,6 +5,8 @@
   */
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
 function _extends() {
   _extends = Object.assign || function (target) {
     for (var i = 1; i < arguments.length; i++) {
@@ -241,7 +243,7 @@ function () {
     window.history.back();
   }
   /**
-   * 判断页面是否已经加载过
+   * 判断页面是否已加载过
    */
   ;
 
@@ -496,15 +498,16 @@ function () {
       // 创建 页面层
 
       var p = document.createElement('div');
-      p.id = r.id;
-      p.innerHTML = html; // 缓存页面
+      p.innerHTML = html;
+      p = $(p).firstChild();
+      p.id = r.id; // 缓存页面
       // this._pages[r.id] = p;
 
       enter(p);
     };
 
     var nextPage = this.loaded(r);
-    var curPage = this.getCurrentPage(); // 不存在则加载页面
+    var curPage = this.getCurrentPage(); // 页面不存在则加载页面
 
     if (!nextPage) {
       onload(null, r.html); // if (r.load) // 加载视图
@@ -513,7 +516,8 @@ function () {
       //   r.view(onload);
       // else
       //   throw new Error(`route ${r.id} hasn't load function!`);
-    } else enter();
+    } else enter(); // 存在则直接进入
+
 
     return this;
   }
@@ -846,4 +850,4 @@ $.back = function (refresh) {
   $.router.back();
 };
 
-module.exports = Router;
+exports.Router = Router;
