@@ -1,5 +1,5 @@
 /*!
-  * wia router v0.1.4
+  * wia router v0.1.6
   * (c) 2020 Sibyl Yu
   * @license MIT
   */

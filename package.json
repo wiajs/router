@@ -1,6 +1,6 @@
 {
   "name": "@wiajs/router",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "Official router for wia",
   "main": "index.js",
   "types": "dist/router.d.ts",
