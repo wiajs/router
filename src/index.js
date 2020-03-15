@@ -233,7 +233,7 @@ class Router {
   }
 
   /**
-   * 判断页面是否已经加载过
+   * 判断页面是否已加载过
    */
   loaded(r) {
     return $.id(r.id) || this.ps[r.id];
@@ -468,9 +468,10 @@ class Router {
       // console.log('onload html:', html);
 
       // 创建 页面层
-      const p = document.createElement('div');
-      p.id = r.id;
+      let p = document.createElement('div');
       p.innerHTML = html;
+      p = $(p).firstChild();
+      p.id = r.id;
 
       // 缓存页面
       // this._pages[r.id] = p;
@@ -480,7 +481,7 @@ class Router {
     const nextPage = this.loaded(r);
     const curPage = this.getCurrentPage();
 
-    // 不存在则加载页面
+    // 页面不存在则加载页面
     if (!nextPage) {
       onload(null, r.html);
       // if (r.load) // 加载视图
@@ -489,7 +490,7 @@ class Router {
       //   r.view(onload);
       // else
       //   throw new Error(`route ${r.id} hasn't load function!`);
-    } else enter();
+    } else enter(); // 存在则直接进入
 
     return this;
   }
