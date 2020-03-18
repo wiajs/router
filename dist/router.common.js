@@ -258,7 +258,7 @@ function () {
    */
   ;
 
-  _proto.load = function load(path) {
+  _proto.load = function load(path, param) {
     var _this2 = this;
 
     var R = null;
@@ -310,8 +310,14 @@ function () {
             });
           });
           Promise.all([htmlLoad, cssLoad]).then(function (rs) {
-            rs[0].css = rs[1];
-            res(rs[0]);
+            var p = rs[0];
+            p.css = rs[1]; // 触发 load 事件
+
+            if (p.load) {
+              r.load.call(p, param);
+            }
+
+            res(p);
           }).catch(function (err) {
             return rej(err);
           });
@@ -339,7 +345,12 @@ function () {
 
               p.html = r.html;
               p.css = r.css;
-              $.router.push(p);
+              $.router.push(p); // 触发 load 事件
+
+              if (p.load) {
+                r.load.call(p, param);
+              }
+
               res(p);
             }
           }, function (err) {
@@ -381,7 +392,7 @@ function () {
     if (r) this.to(r, refresh);else {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
-      this.load(url).then(function (lr) {
+      this.load(url, param).then(function (lr) {
         // debugger;
         r = _this3.findRoute(url, param, refresh);
         if (r) _this3.to(r, refresh);
@@ -679,33 +690,27 @@ function () {
    * @param {*} p 卸载页面
    */
   _proto.hidePage = function hidePage(r, p) {
-    if (!p || !r) return; // 触发隐藏事件
-
-    if (r.hide) r.hide(p);
+    if (!p || !r) return;
     p.removeClass(this.opt.showClass);
     p.removeClass(this.opt.prevClass);
-    p.removeClass(this.opt.nextClass); // 缓存当前 page
+    p.removeClass(this.opt.nextClass); // 触发隐藏事件
+
+    if (r.hide) r.hide(p); // 缓存当前 page
 
     if (r.lastPage) this.ps[r.lastPage.id] = p;
     p.remove();
     this.removeCss();
   }
   /**
-   * 显示新页面
-   * @param {*} lastr 上一个路由
-   * @param {*} r 当前路由
-   * @param {*} p 当前页面
+   * 启动动画前调用show/ready事件,在页面显示前,准备好页面
+   * 如果在动画后调用,会先看到旧页面残留,体验不好
+   * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
+   * 获取dom 元素时,最好限定在事件参数pg范围获取.
    */
   ;
 
-  _proto.showPage = function showPage(r, p) {
+  _proto.onShow = function onShow(r, p) {
     var _this6 = this;
-
-    if (p) {
-      p.removeClass(this.opt.nextClass);
-      p.removeClass(this.opt.prevClass);
-      p.addClass(this.opt.showClass);
-    }
 
     if (!r) return; // 重新绑定事件
 
@@ -723,7 +728,22 @@ function () {
         r.show(p, r.param, _this6.backed);
       });
     } // r.show(p, r.param);
-    //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
+
+  }
+  /**
+   * 显示新页面
+   * @param {*} lastr 上一个路由
+   * @param {*} r 当前路由
+   * @param {*} p 当前页面
+   */
+  ;
+
+  _proto.showPage = function showPage(r, p) {
+    if (p) {
+      p.removeClass(this.opt.nextClass);
+      p.removeClass(this.opt.prevClass);
+      p.addClass(this.opt.showClass);
+    } //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
     // 外层（init.js）中会绑定 pageInitInternal 事件，然后对页面进行初始化
     //$to.trigger(EVENTS.pageInit, [to.id, to]);
 
@@ -757,8 +777,10 @@ function () {
         if (this.noAni) {
           this.noAni = false;
           this.hidePage(lastr, from);
+          this.onShow(r, to);
           this.showPage(r, to);
         } else {
+          this.onShow(r, to);
           this.aniPage(from, to, dir, function () {
             _this7.hidePage(lastr, from);
 
@@ -768,6 +790,7 @@ function () {
       } else if (from) {
         this.hidePage(lastr, from);
       } else if (to) {
+        this.onShow(r, to);
         this.showPage(r, to);
       }
     }

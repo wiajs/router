@@ -245,7 +245,7 @@ class Router {
    * @param {*} path src目录下
    * 返回 promise
    */
-  load(path) {
+  load(path, param) {
     let R = null;
 
     try {
@@ -267,7 +267,7 @@ class Router {
                 const Cls = __webpack_require__(`./src/page/${name}.js`); // eslint-disable-line
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
                 p.html = rs;
-                $.router.push(p);
+                $.router.push(p);								
                 resHtml(p);
               },
               err => rejHtml(err)
@@ -289,8 +289,14 @@ class Router {
 
           Promise.all([htmlLoad, cssLoad])
             .then(rs => {
-              rs[0].css = rs[1];
-              res(rs[0]);
+              const p = rs[0];
+							p.css = rs[1];
+							// 触发 load 事件
+							if (p.load) {
+								p::r.load(param);
+							}
+								
+              res(p);
             })
             .catch(err => rej(err));
         } else {
@@ -314,6 +320,12 @@ class Router {
                 p.html = r.html;
                 p.css = r.css;
                 $.router.push(p);
+								
+								// 触发 load 事件
+								if (p.load) {
+									p::r.load(param);
+								}
+								
                 res(p);
               }
             },
@@ -354,7 +366,7 @@ class Router {
     else {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
-      this.load(url).then(lr => {
+      this.load(url, param).then(lr => {
         // debugger;
         r = this.findRoute(url, param, refresh);
         if (r) this.to(r, refresh);
@@ -646,12 +658,12 @@ class Router {
   hidePage(r, p) {
     if (!p || !r) return;
 
-    // 触发隐藏事件
-    if (r.hide) r.hide(p);
-
     p.removeClass(this.opt.showClass);
     p.removeClass(this.opt.prevClass);
     p.removeClass(this.opt.nextClass);
+
+    // 触发隐藏事件
+    if (r.hide) r.hide(p);
 
     // 缓存当前 page
     if (r.lastPage) this.ps[r.lastPage.id] = p;
@@ -661,18 +673,12 @@ class Router {
   }
 
   /**
-   * 显示新页面
-   * @param {*} lastr 上一个路由
-   * @param {*} r 当前路由
-   * @param {*} p 当前页面
+   * 启动动画前调用show/ready事件,在页面显示前,准备好页面
+   * 如果在动画后调用,会先看到旧页面残留,体验不好
+   * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
+   * 获取dom 元素时,最好限定在事件参数pg范围获取.
    */
-  showPage(r, p) {
-    if (p) {
-      p.removeClass(this.opt.nextClass);
-      p.removeClass(this.opt.prevClass);
-      p.addClass(this.opt.showClass);
-    }
-
+  onShow(r, p) {
     if (!r) return;
 
     // 重新绑定事件
@@ -692,6 +698,20 @@ class Router {
       });
     }
     // r.show(p, r.param);
+  }
+
+  /**
+   * 显示新页面
+   * @param {*} lastr 上一个路由
+   * @param {*} r 当前路由
+   * @param {*} p 当前页面
+   */
+  showPage(r, p) {
+    if (p) {
+      p.removeClass(this.opt.nextClass);
+      p.removeClass(this.opt.prevClass);
+      p.addClass(this.opt.showClass);
+    }
 
     //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
     // 外层（init.js）中会绑定 pageInitInternal 事件，然后对页面进行初始化
@@ -726,8 +746,10 @@ class Router {
         if (this.noAni) {
           this.noAni = false;
           this.hidePage(lastr, from);
+          this.onShow(r, to);
           this.showPage(r, to);
         } else {
+          this.onShow(r, to);
           this.aniPage(from, to, dir, () => {
             this.hidePage(lastr, from);
             this.showPage(r, to);
@@ -736,6 +758,7 @@ class Router {
       } else if (from) {
         this.hidePage(lastr, from);
       } else if (to) {
+        this.onShow(r, to);
         this.showPage(r, to);
       }
     }
