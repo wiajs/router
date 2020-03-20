@@ -51,7 +51,7 @@ The resulting files are:
 3. dist/router.esm.js
 4. dist/router.esm.min.js
 5. dist/router.umd.js
-6. dist/router.umd.min.js
+6. dist/router.min.js
 
 ## hash
 
@@ -119,6 +119,12 @@ function bind() {
 ### css Requirements
 
 ### Data Interchange
+
+## use
+
+```js
+  import Router from @wiajs/router
+```
 
 ## Stay In Touch
 
