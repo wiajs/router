@@ -188,6 +188,8 @@ class Router {
     url = url || 'home';
     url = this.repairUrl(url);
 
+    console.log('go ', {url, param, refresh, href: location.href});
+
     // 当前网页重新加载，不会触发 hash 事件，直接路由
     if (getHash(location.href) === url) {
       // `#${url}`;
@@ -267,7 +269,7 @@ class Router {
                 const Cls = __webpack_require__(`./src/page/${name}.js`); // eslint-disable-line
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
                 p.html = rs;
-                $.router.push(p);								
+                $.router.push(p);
                 resHtml(p);
               },
               err => rejHtml(err)
@@ -290,12 +292,12 @@ class Router {
           Promise.all([htmlLoad, cssLoad])
             .then(rs => {
               const p = rs[0];
-							p.css = rs[1];
-							// 触发 load 事件
-							if (p.load) {
-								p::r.load(param);
-							}
-								
+              p.css = rs[1];
+              // 触发 load 事件
+              if (p.load) {
+                p.load(param);
+              }
+
               res(p);
             })
             .catch(err => rej(err));
@@ -320,12 +322,12 @@ class Router {
                 p.html = r.html;
                 p.css = r.css;
                 $.router.push(p);
-								
-								// 触发 load 事件
-								if (p.load) {
-									p::r.load(param);
-								}
-								
+
+                // 触发 load 事件
+                if (p.load) {
+                  p.load(param);
+                }
+
                 res(p);
               }
             },
@@ -361,6 +363,8 @@ class Router {
    * @returns {Router}
    */
   routeTo(url, param, refresh) {
+    console.log('routeTo ', {url, param, refresh});
+
     let r = this.findRoute(url, param, refresh);
     if (r) this.to(r, refresh);
     else {
@@ -399,7 +403,7 @@ class Router {
     // 如果切换的是前一个page，则为回退！
     if (rs.length > 1 && rs[rs.length - 2].id === r.id) {
       this.backed = true;
-      console.log(`to back id:${rs[rs.length - 2].id} <- ${r.id}`);
+      console.log(`to back id:${rs[rs.length - 2].id} <- ${this.lastPage.id}`);
       rs.pop();
     } else if (rs.length > 0 && rs[rs.length - 1].id === r.id) {
       console.log(`to same id: ${r.id}`);
@@ -631,13 +635,30 @@ class Router {
   aniPage(from, to, dir, cb) {
     const aniClass = `router-transition-${dir || 'forward'} router-transition`;
 
-    to.animationEnd(() => {
-      console.log('animation.');
-      this.view.removeClass(aniClass);
-      // from.removeClass('page-previous');
-      if (cb) cb();
-    });
-    console.log('animation...');
+    // console.log('aniPage ', {aniClass});
+
+    // 动画结束，去掉 animation css 样式
+    if ($.device.ios) {
+      to.animationEnd(() => {
+        console.log('animation end.');
+        this.view.removeClass(aniClass);
+        // from.removeClass('page-previous');
+        if (cb) cb();
+      });
+    } else {
+      let end = to;
+      if (dir === 'backward') end = from;
+
+      // md to's animation: none, only from's animation
+      end.animationEnd(() => {
+        console.log('animation end.');
+        this.view.removeClass(aniClass);
+        // from.removeClass('page-previous');
+        if (cb) cb();
+      });
+    }
+
+    console.log('animation start...');
     // Add class, start animation
     this.view.addClass(aniClass);
   }
@@ -679,25 +700,29 @@ class Router {
    * 获取dom 元素时,最好限定在事件参数pg范围获取.
    */
   onShow(r, p) {
-    if (!r) return;
+    try {
+      if (!r) return;
 
-    // 重新绑定事件
-    if (r.doReady && r.ready) {
-      // 如果不使用延时，加载无法获取dom节点坐标！
-      //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
-      $.nextTick(() => {
-        r.ready(p, r.param, this.backed);
-      });
-      // r.ready(p, r.param);
-    }
+      // 重新绑定事件
+      if (r.doReady && r.ready) {
+        // 如果不使用延时，加载无法获取dom节点坐标！
+        //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
+        $.nextTick(() => {
+          r.ready(p, r.param, this.backed);
+        });
+        // r.ready(p, r.param);
+      }
 
-    // 触发
-    if (r.show) {
-      $.nextTick(() => {
-        r.show(p, r.param, this.backed);
-      });
+      // 触发
+      if (r.show) {
+        $.nextTick(() => {
+          r.show(p, r.param, this.backed);
+        });
+      }
+      // r.show(p, r.param);
+    } catch (ex) {
+      console.log('onShow ', {ex: ex.message});
     }
-    // r.show(p, r.param);
   }
 
   /**
@@ -749,6 +774,7 @@ class Router {
           this.onShow(r, to);
           this.showPage(r, to);
         } else {
+          // 先触发show事件
           this.onShow(r, to);
           this.aniPage(from, to, dir, () => {
             this.hidePage(lastr, from);
@@ -790,7 +816,11 @@ function getHash(url) {
 function setHash(url) {
   let hash = url;
   if (url[0] !== '!') hash = `!${url}`;
-  location.hash = hash;
+  console.log('setHash...', {url, href: location.href, hash: location.hash});
+  location.hash = hash; // modify invalid
+  // $.nextTick(() => (location.hash = hash));
+  // location.href = location.href.replace(/#[\s\S]*/i, hash);
+  console.log('setHash.', {url, href: location.href, hash: location.hash});
 }
 
 /**

@@ -201,7 +201,13 @@ function () {
     // debugger
     // 默认跳转到首页
     url = url || 'home';
-    url = this.repairUrl(url); // 当前网页重新加载，不会触发 hash 事件，直接路由
+    url = this.repairUrl(url);
+    console.log('go ', {
+      url: url,
+      param: param,
+      refresh: refresh,
+      href: location.href
+    }); // 当前网页重新加载，不会触发 hash 事件，直接路由
 
     if (getHash(location.href) === url) {
       // `#${url}`;
@@ -314,7 +320,7 @@ function () {
             p.css = rs[1]; // 触发 load 事件
 
             if (p.load) {
-              r.load.call(p, param);
+              p.load(param);
             }
 
             res(p);
@@ -348,7 +354,7 @@ function () {
               $.router.push(p); // 触发 load 事件
 
               if (p.load) {
-                r.load.call(p, param);
+                p.load(param);
               }
 
               res(p);
@@ -388,6 +394,11 @@ function () {
   _proto.routeTo = function routeTo(url, param, refresh) {
     var _this3 = this;
 
+    console.log('routeTo ', {
+      url: url,
+      param: param,
+      refresh: refresh
+    });
     var r = this.findRoute(url, param, refresh);
     if (r) this.to(r, refresh);else {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
@@ -426,7 +437,7 @@ function () {
 
     if (rs.length > 1 && rs[rs.length - 2].id === r.id) {
       this.backed = true;
-      console.log("to back id:" + rs[rs.length - 2].id + " <- " + r.id);
+      console.log("to back id:" + rs[rs.length - 2].id + " <- " + this.lastPage.id);
       rs.pop();
     } else if (rs.length > 0 && rs[rs.length - 1].id === r.id) {
       console.log("to same id: " + r.id);
@@ -663,16 +674,33 @@ function () {
   _proto.aniPage = function aniPage(from, to, dir, cb) {
     var _this5 = this;
 
-    var aniClass = "router-transition-" + (dir || 'forward') + " router-transition";
-    to.animationEnd(function () {
-      console.log('animation.');
+    var aniClass = "router-transition-" + (dir || 'forward') + " router-transition"; // console.log('aniPage ', {aniClass});
+    // 动画结束，去掉 animation css 样式
 
-      _this5.view.removeClass(aniClass); // from.removeClass('page-previous');
+    if ($.device.ios) {
+      to.animationEnd(function () {
+        console.log('animation end.');
+
+        _this5.view.removeClass(aniClass); // from.removeClass('page-previous');
 
 
-      if (cb) cb();
-    });
-    console.log('animation...'); // Add class, start animation
+        if (cb) cb();
+      });
+    } else {
+      var end = to;
+      if (dir === 'backward') end = from; // md to's animation: none, only from's animation
+
+      end.animationEnd(function () {
+        console.log('animation end.');
+
+        _this5.view.removeClass(aniClass); // from.removeClass('page-previous');
+
+
+        if (cb) cb();
+      });
+    }
+
+    console.log('animation start...'); // Add class, start animation
 
     this.view.addClass(aniClass);
   }
@@ -712,23 +740,29 @@ function () {
   _proto.onShow = function onShow(r, p) {
     var _this6 = this;
 
-    if (!r) return; // 重新绑定事件
+    try {
+      if (!r) return; // 重新绑定事件
 
-    if (r.doReady && r.ready) {
-      // 如果不使用延时，加载无法获取dom节点坐标！
-      //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
-      $.nextTick(function () {
-        r.ready(p, r.param, _this6.backed);
-      }); // r.ready(p, r.param);
-    } // 触发
+      if (r.doReady && r.ready) {
+        // 如果不使用延时，加载无法获取dom节点坐标！
+        //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
+        $.nextTick(function () {
+          r.ready(p, r.param, _this6.backed);
+        }); // r.ready(p, r.param);
+      } // 触发
 
 
-    if (r.show) {
-      $.nextTick(function () {
-        r.show(p, r.param, _this6.backed);
+      if (r.show) {
+        $.nextTick(function () {
+          r.show(p, r.param, _this6.backed);
+        });
+      } // r.show(p, r.param);
+
+    } catch (ex) {
+      console.log('onShow ', {
+        ex: ex.message
       });
-    } // r.show(p, r.param);
-
+    }
   }
   /**
    * 显示新页面
@@ -780,6 +814,7 @@ function () {
           this.onShow(r, to);
           this.showPage(r, to);
         } else {
+          // 先触发show事件
           this.onShow(r, to);
           this.aniPage(from, to, dir, function () {
             _this7.hidePage(lastr, from);
@@ -822,7 +857,20 @@ function getHash(url) {
 function setHash(url) {
   var hash = url;
   if (url[0] !== '!') hash = "!" + url;
-  location.hash = hash;
+  console.log('setHash...', {
+    url: url,
+    href: location.href,
+    hash: location.hash
+  });
+  location.hash = hash; // modify invalid
+  // $.nextTick(() => (location.hash = hash));
+  // location.href = location.href.replace(/#[\s\S]*/i, hash);
+
+  console.log('setHash.', {
+    url: url,
+    href: location.href,
+    hash: location.hash
+  });
 }
 /**
  * 修改微信 title
