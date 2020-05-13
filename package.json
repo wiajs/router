@@ -1,6 +1,6 @@
 {
   "name": "@wiajs/router",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Official router for wia",
   "main": "index.js",
   "types": "dist/router.d.ts",
@@ -47,6 +47,5 @@
     "rollup-plugin-replace": "^2.2.0",
     "terser": "^4.4.0"
   },
-  "dependencies": {
-	}
+  "dependencies": {}
 }
