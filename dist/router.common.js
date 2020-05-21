@@ -223,29 +223,52 @@ function () {
     }
   }
   /**
-   * 路由仅接受绝对path，自动将相对path转换为绝对path
-   * 比如当前hash为 '/nuoya/mall/#!/a' 切换到 '/nuoya/mall/#!/b'
-   * $.go('b') 或者 $.go('/nuoya/mall/b');
-   * 在网址上输入 https://app.nuoya.io/mall#!home
-   * 也会自动切换到 https://app.nuoya.io/mall#!/nuoya/mall/home
+   * 全屏模式不能跨网页，因此不同应用只能用不同hash区分
+   * 路由仅接受绝对hash，自动将相对path转换为绝对hash
+   * $.go('b') 转换为 $.go('/star/etrip/b')
+   * 实际网址 https://wia.pub/#!/ower/name/b
+   * $.go('/') 切换到当前路径的根路径：wia.pub/#!/ower/name，
+   * 在网址上输入 https://wia.pub/#!b
+   * 也会根据当前网址补全路径，自动切换到 https://wia.pub/#!/ower/name/b
    * @param {*} url
    */
   ;
 
   _proto.repairUrl = function repairUrl(url) {
-    var R = url;
+    var R = '';
+    if (!url) return '';
 
     try {
-      if (url.startsWith('../')) R = url.replace(/\.\.\//, "/" + this.opt.owner + "/");else if (!url.startsWith('/')) R = "" + url; // `/${this.opt.owner}/${this.opt.name}/${url}`;
+      R = url.endsWith('/') ? url.substr(0, url.length - 1) : url;
+      if (url === '/') R = '/';else if (url === '~') R = "/" + this.opt.owner + "/" + this.opt.name; // else if (url.startsWith('./'))
+      //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
+      // else if (url.startsWith('../'))
+      //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
+      else if (!url.startsWith('/')) R = "/" + this.opt.owner + "/" + this.opt.name + "/" + url;else if (url.startsWith('/')) {
+          var ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/); // default to home
+
+          if (ps) {
+            var owner = ps[1];
+            var name = ps[2];
+            var page = ps[3];
+            if (owner && name && !page) R = "/" + owner + "/" + name + "/home" + ps[4];
+          }
+        }
+      if (R !== url) console.log("router repairUrl:" + url + " -> " + R);
     } catch (e) {
       console.log("router repairUrl exp:" + e.message);
     }
 
-    if (R !== url) console.log("router repairUrl:" + url + " -> " + R);
     return R;
   };
 
-  _proto.back = function back() {
+  _proto.back = function back(param, refresh) {
+    if (refresh === void 0) {
+      refresh = false;
+    }
+
+    this.param = param;
+    this.refresh = refresh;
     window.history.back();
   }
   /**
@@ -259,35 +282,72 @@ function () {
   /**
    * 动态下载页面js，里面包括js、html和css
    * 本地调试，则动态从本地下载html、css
-   * @param {*} path src目录下
+   * @param {*} url 加载页面网址，格式：/ower/appname/page
    * 返回 promise
    */
   ;
 
-  _proto.load = function load(path, param) {
+  _proto.load = function load(url, param) {
     var _this2 = this;
 
     var R = null;
 
     try {
       R = new Promise(function (res, rej) {
-        console.log("router load path:" + path);
-        var pos = path.lastIndexOf('/');
-        var name = path.substr(pos + 1); // 本地调试状态，直接获取本地页面
+        // console.log(`router load url:${url}`);
+        // const pos = path.lastIndexOf('/');
+        // const name = path.substr(pos + 1);
+        var ps = url.match(/([^/]+)\/([^/]+)\/([^?]+)/);
+        var ower = ps === null || ps === void 0 ? void 0 : ps[1];
+        var name = ps === null || ps === void 0 ? void 0 : ps[2];
+        var page = ps === null || ps === void 0 ? void 0 : ps[3];
+        console.log('load', {
+          ower: ower,
+          name: name,
+          page: page
+        }); // 本地调试状态，直接获取本地页面
 
         if (_this2.opt.mode === 'local') {
           // debugger;
-          // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
-          var htmlLoad = new Promise(function (resHtml, rejHtml) {
-            var url = _this2.opt.local + "/page/" + name + ".html?v=" + Date.now();
-            $.get(url).then(function (rs) {
-              // debugger;
-              console.log('router load html:', {
-                url: url,
-                rs: rs
-              }); // 获得模块对象
+          // 加载 app
+          var appJs = null;
+          var appCss = null; // 切换应用
 
-              var Cls = __webpack_require__("./src/page/" + name + ".js"); // eslint-disable-line
+          /*
+          if (ower !== this.opt.owner || name !== this.opt.name) {
+            appJs = new Promise((resJs, rejJs) => {
+              const url = `${this.opt.local}/index2.js?v=${Date.now()}`;
+              $.get(url).then(
+                rs => {
+                  // debugger;
+                  console.log('router load index2.js', {url, rs});
+                  resJs(rs); // eslint-disable-line
+                },
+                err => rejJs(err)
+              );
+            });
+             appCss = new Promise((resCss, rejCss) => {
+              const url = `${this.opt.local}/index.css?v=${Date.now()}`;
+              $.get(url).then(
+                rs => {
+                  // debugger;
+                  console.log('router load index.css', {url, rs});
+                  resCss(rs); // eslint-disable-line
+                },
+                err => rejCss(err)
+              );
+            });
+          }
+          */
+          // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
+
+          var pgHtml = new Promise(function (resHtml, rejHtml) {
+            var pgurl = _this2.opt.local + "/page/" + page + ".html?v=" + Date.now();
+            $.get(pgurl).then(function (rs) {
+              // debugger;
+              // console.log('router load html:', {url: pgurl, rs});
+              // 获得模块对象
+              var Cls = __webpack_require__("./src/page/" + page + ".js"); // eslint-disable-line
 
 
               var p = new Cls.default({
@@ -295,44 +355,72 @@ function () {
               }); // eslint-disable-line
 
               p.html = rs;
-              $.router.push(p);
+              p.url = "/" + ower + "/" + name + "/" + page;
+
+              _this2.push(p); // save page instance
+
+
               resHtml(p);
             }, function (err) {
               return rejHtml(err);
             });
           });
-          var cssLoad = new Promise(function (resCss, rejCss) {
-            var url = _this2.opt.local + "/page/" + name + ".css?v=" + Date.now(); // console.log(`router load css:${url}`);
+          var pgCss = new Promise(function (resCss, rejCss) {
+            var pgurl = _this2.opt.local + "/page/" + page + ".css?v=" + Date.now(); // console.log(`router load css:${url}`);
 
-            $.get(url).then(function (rs) {
+            $.get(pgurl).then(function (rs) {
               // debugger;
-              console.log('router load css:', {
-                url: url,
-                rs: rs
-              });
+              // console.log('router load css:', {url: pgurl, rs});
               resCss(rs);
             }, function (err) {
               return rejCss(err);
             });
           });
-          Promise.all([htmlLoad, cssLoad]).then(function (rs) {
-            var p = rs[0];
-            p.css = rs[1]; // 触发 load 事件
 
-            if (p.load) {
-              p.load(param);
-            }
+          if (appJs) {
+            Promise.all([appJs, appCss]).then(function (rs) {
+              // 切换 app
+              _this2.opt.owner = ower;
+              _this2.opt.name = name;
+              _this2.rs = [];
+              eval(rs[0]); // eslint-disable-line
 
-            res(p);
-          }).catch(function (err) {
-            return rej(err);
-          });
+              var appcss = rs[1];
+              Promise.all([pgHtml, pgCss]).then(function (rs2) {
+                var p = rs2[0];
+                p.css = rs2[1]; // 触发 load 事件
+
+                if (p.load) {
+                  p.load(param);
+                }
+
+                res(p);
+              }).catch(function (err) {
+                return rej(err);
+              });
+            }).catch(function (err) {
+              return rej(err);
+            });
+          } else {
+            Promise.all([pgHtml, pgCss]).then(function (rs) {
+              var p = rs[0];
+              p.css = rs[1]; // 触发 load 事件
+
+              if (p.load) {
+                p.load(param);
+              }
+
+              res(p);
+            }).catch(function (err) {
+              return rej(err);
+            });
+          }
         } else {
-          path = path.substring(1, pos) + "/page/" + name; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
+          url = url.substring(1, pos) + "/page/" + page; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
 
-          var url = _this2.opt.cos + "/" + path + ".js?v=" + _this2.opt.ver;
-          console.log("router load url:" + url);
-          $.get(url).then(function (rs) {
+          var pgurl = _this2.opt.cos + "/" + url + ".js?v=" + _this2.opt.ver;
+          console.log("router load url:" + pgurl);
+          $.get(pgurl).then(function (rs) {
             // debugger;
             console.log(rs);
             var r = JSON.parse(rs);
@@ -549,51 +637,51 @@ function () {
    * 将?后面的内容从url剥离，并转换为参数，？需包含在hash中，也就是 # 之后
    * 比如当前hash为 '#!a' 切换到 '#!b'
    * $.go('b')
-   * 网址上输入 https://wia.pub/nuoya/mall
-   * 默认到首页 https://wia.pub/nuoya/mall/#!home
-   * 等同于页面 https://wia.pub/nuoya/mall/index.html#!home
+   * 网址上输入 https://wia.pub/#!/ower/name
+   * 默认到首页 https://wia.pub/#!/ower/bame/home
    * @param {*} url
    */
   ;
 
-  _proto.getPath = function getPath(url) {
+  _proto.parseUrl = function parseUrl(url) {
     var R = {
-      path: url
+      url: url
     };
 
     try {
       // 把?后面的内容作为 param参数处理，？需包含在hash中，也就是 # 之后
-      var pos = url.indexOf('?');
+      var _pos = url.indexOf('?');
 
-      if (pos >= 0) {
-        R.path = url.substr(0, pos);
-        R.search = url.substr(pos + 1);
+      if (_pos >= 0) {
+        R.url = url.substr(0, _pos);
+        R.search = url.substr(_pos + 1);
 
         if (R.search) {
           R.param = {};
           var ps = R.search.split('&');
           ps.forEach(function (p) {
-            pos = p.indexOf('=');
-            if (pos > 0) R.param[p.substr(0, pos)] = p.substr(pos + 1);
+            _pos = p.indexOf('=');
+            if (_pos > 0) R.param[p.substr(0, _pos)] = p.substr(_pos + 1);
           });
         }
       }
 
-      if (R.path.startsWith('../')) {
-        R.path = R.path.replace('../', "/" + this.opt.owner + "/");
-      } // else if (!R.path.startsWith('/'))
+      R.url = this.repairUrl(R.url); // if (R.path.startsWith('../')) {
+      //   R.path = R.path.replace('../', `/${this.opt.owner}/`);
+      // }
+      // else if (!R.path.startsWith('/'))
       //   R.path = `/${this.opt.owner}/${this.opt.name}/${R.path}`;
 
+      if (url !== R.url) console.log("router parseUrl url:" + url + " -> " + R.url);
     } catch (e) {
-      console.log("router getPath exp:" + e.message);
+      console.log("router parseUrl exp:" + e.message);
     }
 
-    if (url !== R.path) console.log("router getPath url:" + url + " -> " + R.path);
     return R;
   }
   /**
    * get route from routes filter by url
-   * @param {String} url
+   * @param {String} url /ower/name/page
    * @param {Object} param
    * @returns {Object}
    */
@@ -601,13 +689,17 @@ function () {
 
   _proto.findRoute = function findRoute(url, param, refresh) {
     var R = null;
-    var rs = this.getPath(url); // for (let i = 0, len = this.rs.length; i < len; i++) {
+    var rs = this.parseUrl(url); // for (let i = 0, len = this.rs.length; i < len; i++) {
 
     var r = this.rs.find(function (rt) {
-      return rt.path === rs.path;
+      return rt.url === rs.url;
     });
 
-    if (r) {
+    if (!r) {
+      console.log('findRoute not find!', {
+        url: url
+      });
+    } else {
       if (rs.param) r.param = _extends({}, rs.param);else r.param = {};
       if (param) $.assign(r.param, param); // 记录当前 path
 
@@ -631,17 +723,18 @@ function () {
   _proto.push = function push(r) {
     try {
       if (!r) throw new Error('page is empty!');
-      if (!r.path) throw new Error("page's path is empty!");
+      if (!r.url) throw new Error("page's url is empty!");
       var exist = this.rs.find(function (rt) {
-        return rt.path === r.path;
+        return rt.url === r.url;
       });
 
       if (exist) {
-        console.info("push r.path:" + r.path + " exist.");
+        console.info("push r.url:" + r.url + " exist.");
         return;
       }
 
-      r.id = "page-" + r.path.replace(/\//g, '-'); // 将 path 转换为绝对路径
+      r.id = "" + r.url.replace(/\//g, '-');
+      if (r.id.startsWith('-')) r.id = r.id.substr(1); // 将 path 转换为绝对路径
       // r.path = `/${this.opt.owner}/${this.opt.name}/${r.path}`;
 
       r.ready = r.ready || $.noop;
@@ -655,10 +748,10 @@ function () {
        */
 
       this.rs.push(r);
-      console.debug("router push r.path:" + r.path + " succ.");
+      console.debug("router push r.url:" + r.url + " succ.");
       return this;
-    } catch (e) {
-      alert("router.push exp: " + e.message);
+    } catch (ex) {
+      alert("router.push exp: " + ex.message);
     }
   }
   /**
@@ -847,30 +940,21 @@ function () {
 
 
 function getHash(url) {
-  if (!url) return '';
+  if (!url) url = location.href;
   var pos = url.indexOf('#!');
   if (pos !== -1) pos++;else pos = url.indexOf('#');
   return pos !== -1 ? url.substring(pos + 1) : ''; // ??? '/'
-} // google 支持 #! 格式
+} // google 支持 #! 格式，百度浏览器修改hash无效
 
 
 function setHash(url) {
   var hash = url;
-  if (url[0] !== '!') hash = "!" + url;
-  console.log('setHash...', {
-    url: url,
-    href: location.href,
-    hash: location.hash
-  });
+  if (url[0] !== '!') hash = "!" + url; // console.log('setHash...', {url, href: location.href, hash: location.hash});
+
   location.hash = hash; // modify invalid
   // $.nextTick(() => (location.hash = hash));
   // location.href = location.href.replace(/#[\s\S]*/i, hash);
-
-  console.log('setHash.', {
-    url: url,
-    href: location.href,
-    hash: location.hash
-  });
+  // console.log('setHash.', {url, href: location.href, hash: location.hash});
 }
 /**
  * 修改微信 title
@@ -912,13 +996,12 @@ $.go = function (url, param, refresh) {
   $.router.go(url, param, refresh);
 };
 
-$.back = function (refresh) {
+$.back = function (param, refresh) {
   if (refresh === void 0) {
     refresh = false;
   }
 
-  $.router.refresh = refresh;
-  $.router.back();
+  $.router.back(param, refresh);
 };
 
 exports.Router = Router;
