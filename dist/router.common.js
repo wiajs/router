@@ -356,6 +356,7 @@ function () {
 
               p.html = rs;
               p.url = "/" + ower + "/" + name + "/" + page;
+              p.param = param;
 
               _this2.push(p); // save page instance
 
@@ -390,10 +391,7 @@ function () {
                 var p = rs2[0];
                 p.css = rs2[1]; // 触发 load 事件
 
-                if (p.load) {
-                  p.load(param);
-                }
-
+                if (p.load) p.load(param);
                 res(p);
               }).catch(function (err) {
                 return rej(err);
@@ -406,10 +404,7 @@ function () {
               var p = rs[0];
               p.css = rs[1]; // 触发 load 事件
 
-              if (p.load) {
-                p.load(param);
-              }
-
+              if (p.load) p.load(param);
               res(p);
             }).catch(function (err) {
               return rej(err);
@@ -439,12 +434,10 @@ function () {
 
               p.html = r.html;
               p.css = r.css;
+              p.param = param;
               $.router.push(p); // 触发 load 事件
 
-              if (p.load) {
-                p.load(param);
-              }
-
+              if (p.load) p.load(param);
               res(p);
             }
           }, function (err) {
@@ -513,7 +506,9 @@ function () {
     } // 记录当前 route
 
 
-    this.lastPage = this.page;
+    this.lastPage = this.page; // 记录当前 scrollTop
+
+    if (this.lastPage) this.lastPage.scrollTop = this.lastPage.el.clas('page-content').dom.scrollTop;
     this.page = r;
     $.page = this.page;
     $.lastPage = this.lastPage; // alert(`routeTo url:${r.url}`);
@@ -580,7 +575,8 @@ function () {
       } // 记录当前层
 
 
-      r.page = p; // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
+      r.page = p;
+      r.el = $(p); // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
       // 应该判断 hash 是否已经改变，如已改变，则不切换
       // alert(`hash:${this.hash} => ${this.nextHash}`);
 
@@ -847,6 +843,7 @@ function () {
 
       if (r.show) {
         $.nextTick(function () {
+          if (_this6.backed && r.scrollTop) p.clas('page-content').dom.scrollTop = r.scrollTop;
           r.show(p, r.param, _this6.backed);
         });
       } // r.show(p, r.param);

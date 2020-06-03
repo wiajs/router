@@ -331,6 +331,7 @@ class Router {
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
                 p.html = rs;
                 p.url = `/${ower}/${name}/${page}`;
+                p.param = param;
                 this.push(p); // save page instance
                 resHtml(p);
               },
@@ -367,9 +368,7 @@ class Router {
                     const p = rs2[0];
                     p.css = rs2[1];
                     // 触发 load 事件
-                    if (p.load) {
-                      p.load(param);
-                    }
+                    if (p.load) p.load(param);
 
                     res(p);
                   })
@@ -382,9 +381,7 @@ class Router {
                 const p = rs[0];
                 p.css = rs[1];
                 // 触发 load 事件
-                if (p.load) {
-                  p.load(param);
-                }
+                if (p.load) p.load(param);
 
                 res(p);
               })
@@ -410,12 +407,11 @@ class Router {
                 const p = new P.default(); // eslint-disable-line
                 p.html = r.html;
                 p.css = r.css;
+                p.param = param;
                 $.router.push(p);
 
                 // 触发 load 事件
-                if (p.load) {
-                  p.load(param);
-                }
+                if (p.load) p.load(param);
 
                 res(p);
               }
@@ -479,6 +475,11 @@ class Router {
 
     // 记录当前 route
     this.lastPage = this.page;
+    // 记录当前 scrollTop
+    if (this.lastPage)
+      this.lastPage.scrollTop = this.lastPage.el.clas(
+        'page-content'
+      ).dom.scrollTop;
     this.page = r;
     $.page = this.page;
     $.lastPage = this.lastPage;
@@ -549,6 +550,8 @@ class Router {
 
       // 记录当前层
       r.page = p;
+      r.el = $(p);
+
       // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
       // 应该判断 hash 是否已经改变，如已改变，则不切换
       // alert(`hash:${this.hash} => ${this.nextHash}`);
@@ -809,6 +812,8 @@ class Router {
       // 触发
       if (r.show) {
         $.nextTick(() => {
+          if (this.backed && r.scrollTop)
+            p.clas('page-content').dom.scrollTop = r.scrollTop;
           r.show(p, r.param, this.backed);
         });
       }
