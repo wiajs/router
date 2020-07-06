@@ -55,6 +55,8 @@ class Router {
     ver: '1.0.0',
     mode: 'prod', // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
     transition: 'f7-flip',
+    owner: '', // 所有人
+    name: '', // app name
   };
 
   _index = 1;
@@ -67,7 +69,6 @@ class Router {
   // 缓存显示的页面
   ps = {};
   url = ''; // 当前路由所处的网址，实际上是hash部分！
-  path = []; // 路由的网址路径，去掉了参数部分
   hash = []; // 带参数的完整hash数组，回退pop，前进push
 
   // start route config
@@ -75,22 +76,22 @@ class Router {
 
   /**
    * constructor
-   * @param opts
+   * @param opt
    */
-  constructor(opts) {
+  constructor(opt) {
     // if (Router.instance) {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
     // }
     // Router.instance = this; // 是否控制为单例？
 
-    this.opt = $.assign({}, this.opt, opts);
+    this.opt = $.assign({}, this.opt, opt);
     this.app = this.opt.app;
     this.app.router = this;
     this.view = $(`#${this.opt.view}`);
     this.style = null; // 新增样式 $.id(this.opt.style);
     this.lastStyle = null; // 即将清除的上一个样式
     this.param = {};
-    this.page = null;
+    this.page = null; // 当前 page 实例
     this.lastPage = null;
     // 方便全局访问
     $.view = this.view;
@@ -98,11 +99,18 @@ class Router {
 
     // splash 开机画面不需要 动画
     this.splash = true;
-    this.path = []; // path 数组
 
     this.lastHash = ''; // 前hash
     this.hash = []; // hash数组
     this.nextHash = ''; // 需到达的 hash
+
+    this.owner = this.opt.owner;
+    this.name = this.opt.name;
+    this.path = ''; // 页面路径，去掉参数部分
+
+    this.lastOwner = '';
+    this.lastName = '';
+    this.lastPath = '';
 
     this.backed = false; // 是否为返回
 
@@ -117,6 +125,15 @@ class Router {
         const oldHash = getHash(event.oldURL);
         // ???
         console.log(`router hash:${oldHash} -> ${newHash}`);
+
+        // 将不合规范url修改为规范url
+        let to = newHash || 'index';
+        to = this.repairUrl(to);
+
+        if (newHash !== to) {
+          setHash(to);
+          return;
+        }
 
         // 如果不是绝对路径，则跳转到绝对路径
         // if (!newHash.startsWith('/')) {
@@ -185,10 +202,10 @@ class Router {
      */
     // debugger
     // 默认跳转到首页
-    url = url || 'home';
+    url = url || 'index';
     url = this.repairUrl(url);
 
-    console.log('go ', {url, param, refresh, href: location.href});
+    // console.log('go ', {url, param, refresh, href: location.href});
 
     // 当前网页重新加载，不会触发 hash 事件，直接路由
     if (getHash(location.href) === url) {
@@ -222,29 +239,40 @@ class Router {
     if (!url) return '';
 
     try {
-      R = url.endsWith('/') ? url.substr(0, url.length - 1) : url;
+      R = url;
+
       if (url === '/') R = '/';
-      else if (url === '~') R = `/${this.opt.owner}/${this.opt.name}`;
-      // else if (url.startsWith('./'))
-      //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
+      else if (url === '~') R = `/${this.owner}/${this.name}/index`;
+      else if (url.startsWith('./'))
+        R = `/${this.owner}/${this.name}/${this.path}/${url.substr(2)}`;
       // else if (url.startsWith('../'))
       //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
-      else if (!url.startsWith('/'))
-        R = `/${this.opt.owner}/${this.opt.name}/${url}`;
+      else if (!url.startsWith('/')) R = `/${this.owner}/${this.name}/${url}`;
+      // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
+      // /ower/app => /ower/app/index
+      // /ower/app/ => /ower/app/index
       else if (url.startsWith('/')) {
+        // 自动补充 index
         const ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/);
-        // default to home
+        // default to index
         if (ps) {
           const owner = ps[1];
           const name = ps[2];
           const page = ps[3];
-          if (owner && name && !page) R = `/${owner}/${name}/home${ps[4]}`;
+          if (owner && name && !page) R = `/${owner}/${name}/index${ps[4]}`;
         }
       }
 
+      // R = url.endsWith('/') ? url.substr(0, url.length - 1) : url;
+      // / 结尾，代表目录，自动加载 index
+      // /ower/app/fea/ => /ower/app/fea/index
+      R = R.endsWith('/') ? `${R}index` : R;
+      // /ower/app/fea/?a=1 => /ower/app/fea/index?a=1
+      R = R.replace(/\/\?/g, 'index?');
+
       if (R !== url) console.log(`router repairUrl:${url} -> ${R}`);
     } catch (e) {
-      console.log(`router repairUrl exp:${e.message}`);
+      console.error(`router repairUrl exp:${e.message}`);
     }
 
     return R;
@@ -279,11 +307,20 @@ class Router {
         // const pos = path.lastIndexOf('/');
         // const name = path.substr(pos + 1);
 
-        const ps = url.match(/([^/]+)\/([^/]+)\/([^?]+)/);
-        const ower = ps?.[1];
+        const ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)/);
+
+        // const ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/);
+        const owner = ps?.[1];
         const name = ps?.[2];
-        const page = ps?.[3];
-        console.log('load', {ower, name, page});
+        let page = ps?.[3];
+        if (owner && name && !page) page = 'index';
+        let path = '';
+        if (page && page.includes('/')) {
+          const pos = page.lastIndexOf('/');
+          path = page.substr(0, pos);
+        }
+
+        console.log('load', {owner, name, page, path});
 
         // 本地调试状态，直接获取本地页面
         if (this.opt.mode === 'local') {
@@ -322,6 +359,7 @@ class Router {
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
           const pgHtml = new Promise((resHtml, rejHtml) => {
             const pgurl = `${this.opt.local}/page/${page}.html?v=${Date.now()}`;
+            // console.log('router load html:', {url: pgurl});
             $.get(pgurl).then(
               rs => {
                 // debugger;
@@ -329,8 +367,24 @@ class Router {
                 // 获得模块对象
                 const Cls = __webpack_require__(`./src/page/${page}.js`); // eslint-disable-line
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
+
+                // 未考虑切换应用和owner，保存
+                if (owner) {
+                  if (this.owner !== this.lastOwner)
+                    this.lastOwner = this.owner;
+                  this.owner = owner;
+                }
+                if (name) {
+                  if (this.name !== this.lastName) this.lastName = this.name;
+                  this.name = name;
+                }
+                if (path) {
+                  if (this.path !== this.lastPath) this.lastPath = this.path;
+                  this.path = path;
+                }
+
                 p.html = rs;
-                p.url = `/${ower}/${name}/${page}`;
+                p.url = `/${owner}/${name}/${page}`;
                 p.param = param;
                 this.push(p); // save page instance
                 resHtml(p);
@@ -356,8 +410,14 @@ class Router {
             Promise.all([appJs, appCss])
               .then(rs => {
                 // 切换 app
-                this.opt.owner = ower;
-                this.opt.name = name;
+                if (owner) {
+                  if (this.owner !== this.lastOwner) this.lastOwner = this.owner;
+                  this.owner = owner;
+                }
+                if (name) {
+                  if (this.name !== this.lastName) this.lastName = this.name;
+                  this.name = name;
+                }
                 this.rs = [];
 
                 eval(rs[0]); // eslint-disable-line
@@ -391,12 +451,10 @@ class Router {
           url = `${url.substring(1, pos)}/page/${page}`;
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
           const pgurl = `${this.opt.cos}/${url}.js?v=${this.opt.ver}`;
-          console.log(`router load url:${pgurl}`);
-
           $.get(pgurl).then(
             rs => {
               // debugger;
-              console.log(rs);
+              // console.log(rs);
               const r = JSON.parse(rs);
               if (r && r.js) {
                 const k = Object.keys(r.js)[0];
@@ -421,7 +479,7 @@ class Router {
         }
       });
     } catch (e) {
-      console.log(`load exp:${e.message}`);
+      console.error(`load exp:${e.message}`);
     }
 
     return R;
@@ -456,7 +514,6 @@ class Router {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
       this.load(url, param).then(lr => {
-        // debugger;
         r = this.findRoute(url, param, refresh);
         if (r) this.to(r, refresh);
       });
@@ -576,14 +633,13 @@ class Router {
       // console.log('onload html:', html);
 
       // 创建 页面层
-      let p = document.createElement('div');
-      p.innerHTML = html;
-      p = $(p).firstChild();
-      p.id = r.id;
+      const p = $(html);
+      r.view = p; // dom 对象保存到页面实体的view中
+      p.dom.id = r.id;
 
       // 缓存页面
       // this._pages[r.id] = p;
-      enter(p);
+      enter(p.dom);
     };
 
     const nextPage = this.loaded(r);
@@ -617,7 +673,7 @@ class Router {
     const R = {url};
 
     try {
-      // 把?后面的内容作为 param参数处理，？需包含在hash中，也就是 # 之后
+      // 把?后面的内容作为 search 参数处理，？需包含在hash中，也就是 # 之后
       let pos = url.indexOf('?');
       if (pos >= 0) {
         R.url = url.substr(0, pos);
@@ -640,7 +696,7 @@ class Router {
       //   R.path = `/${this.opt.owner}/${this.opt.name}/${R.path}`;
       if (url !== R.url) console.log(`router parseUrl url:${url} -> ${R.url}`);
     } catch (e) {
-      console.log(`router parseUrl exp:${e.message}`);
+      console.error(`router parseUrl exp:${e.message}`);
     }
 
     return R;
@@ -681,7 +737,7 @@ class Router {
   }
 
   /**
-   * push route config into routes array
+   * push page into router's array
    * @param {Object} r
    * @returns {Router}
    */
@@ -697,6 +753,7 @@ class Router {
         return;
       }
 
+      // 按url自动生成唯一id，该id作为Dom页面的id属性
       r.id = `${r.url.replace(/\//g, '-')}`;
       if (r.id.startsWith('-')) r.id = r.id.substr(1);
       // 将 path 转换为绝对路径
@@ -736,7 +793,7 @@ class Router {
     // 动画结束，去掉 animation css 样式
     if ($.device.ios) {
       to.animationEnd(() => {
-        console.log('animation end.');
+        // console.log('animation end.');
         this.view.removeClass(aniClass);
         // from.removeClass('page-previous');
         if (cb) cb();
@@ -747,14 +804,14 @@ class Router {
 
       // md to's animation: none, only from's animation
       end.animationEnd(() => {
-        console.log('animation end.');
+        // console.log('animation end.');
         this.view.removeClass(aniClass);
         // from.removeClass('page-previous');
         if (cb) cb();
       });
     }
 
-    console.log('animation start...');
+    // console.log('animation start...');
     // Add class, start animation
     this.view.addClass(aniClass);
   }
@@ -794,6 +851,8 @@ class Router {
    * 如果在动画后调用,会先看到旧页面残留,体验不好
    * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
    * 获取dom 元素时,最好限定在事件参数pg范围获取.
+   * @param {*} r 路由
+   * @param {*} p 页面，Dom 对象
    */
   onShow(r, p) {
     try {
@@ -819,7 +878,7 @@ class Router {
       }
       // r.show(p, r.param);
     } catch (ex) {
-      console.log('onShow ', {ex: ex.message});
+      console.error('onShow ', {ex: ex.message});
     }
   }
 
@@ -864,6 +923,7 @@ class Router {
 
     const dir = back ? 'backward' : 'forward';
     if (from || to) {
+      // 页面切换动画
       if (from && to) {
         // 开机splash不需要动画
         if (this.noAni) {
@@ -872,9 +932,10 @@ class Router {
           this.onShow(r, to);
           this.showPage(r, to);
         } else {
-          // 先触发show事件
-          this.onShow(r, to);
+          // 需要动画，先触发show事件
+          this.onShow(r, to); // 提前处理，切换效果好
           this.aniPage(from, to, dir, () => {
+            // 动画结束
             this.hidePage(lastr, from);
             this.showPage(r, to);
           });

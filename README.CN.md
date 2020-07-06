@@ -74,6 +74,7 @@ $ npm run build
 ## 页面跳转
 
 - 页面跳转：`$.go('a', {x: 1, y: 2}, refresh)`
+  如果 a 标签调用 $.go，需注意其 href 是否设置为 "javascript:;"，或者在 $.go 之前调用 event.preventDefault()，禁止页面刷新。
 - 页面回退：`$.back(refresh)`
   页面回退时，请使用 back，而不是 go，go 会在浏览器的 history 里面新增一个节点。
   比如 A->B->C，如果从 C 回退到 B，使用了 go('B')，浏览器的路由路径为：A->B->C-B，此时使用浏览器的回退按键回退时，页面切换到 C，而不是 A。
@@ -143,7 +144,7 @@ export default class Home extends Page {
 }
 
 function bind() {
-  btnLogin.onclick = function() {
+  btnLogin.onclick = function () {
     $.page.data = {x: 1, y: 2};
     $.back(true);
     // $.go('login', {user: {name: 'test'}}, false);
@@ -252,8 +253,8 @@ Dom 对象，类似 jQuery，使用 dom 库封装的方法操作。
    注意，data 仅仅用于跨页面数据交互，页面的数据，请使用内部变量。
 2. `$.back`：回退前设置数据：
    `$.back({data}, refresh)`
-   回退后，通过 `show(pg, param)` 中的param即可读取。
-   回退时，refresh: false，ready 不会触发，只触发 show，中的back 为 true。
+   回退后，通过 `show(pg, param)` 中的 param 即可读取。
+   回退时，refresh: false，ready 不会触发，只触发 show，中的 back 为 true。
 3. `$.go`：虽然 go 也能使用 data 传递数据，但还是建议使用 `param`，而不是 `data`。
    param 用于进入，data 用于应用内返回。
    跨应用返回，只能使用 go，页面刷新，等于重新进入应用，此时只能通过 url 传递参数。

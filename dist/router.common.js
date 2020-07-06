@@ -39,23 +39,20 @@ var location = window.location; // eslint-disable-line
  * a very simple router for the **demo** of [weui](https://github.com/weui/weui)
  */
 
-var Router =
-/*#__PURE__*/
-function () {
+var Router = /*#__PURE__*/function () {
   // default option
   // container element
   // 存放所有路由对象
   // 缓存显示的页面
   // 当前路由所处的网址，实际上是hash部分！
-  // 路由的网址路径，去掉了参数部分
   // 带参数的完整hash数组，回退pop，前进push
   // start route config
 
   /**
    * constructor
-   * @param opts
+   * @param opt
    */
-  function Router(opts) {
+  function Router(opt) {
     var _this = this;
 
     this.opt = {
@@ -75,14 +72,17 @@ function () {
       ver: '1.0.0',
       mode: 'prod',
       // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
-      transition: 'f7-flip'
+      transition: 'f7-flip',
+      owner: '',
+      // 所有人
+      name: '' // app name
+
     };
     this._index = 1;
     this.view = null;
     this.rs = [];
     this.ps = {};
     this.url = '';
-    this.path = [];
     this.hash = [];
     this.splash = false;
 
@@ -94,7 +94,7 @@ function () {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
     // }
     // Router.instance = this; // 是否控制为单例？
-    this.opt = $.assign({}, this.opt, opts);
+    this.opt = $.assign({}, this.opt, opt);
     this.app = this.opt.app;
     this.app.router = this;
     this.view = $("#" + this.opt.view);
@@ -103,21 +103,27 @@ function () {
     this.lastStyle = null; // 即将清除的上一个样式
 
     this.param = {};
-    this.page = null;
+    this.page = null; // 当前 page 实例
+
     this.lastPage = null; // 方便全局访问
 
     $.view = this.view;
     $.router = this; // splash 开机画面不需要 动画
 
     this.splash = true;
-    this.path = []; // path 数组
-
     this.lastHash = ''; // 前hash
 
     this.hash = []; // hash数组
 
     this.nextHash = ''; // 需到达的 hash
 
+    this.owner = this.opt.owner;
+    this.name = this.opt.name;
+    this.path = ''; // 页面路径，去掉参数部分
+
+    this.lastOwner = '';
+    this.lastName = '';
+    this.lastPath = '';
     this.backed = false; // 是否为返回
     // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
     // pushState 不支持 微信侧滑返回
@@ -128,12 +134,21 @@ function () {
       var newHash = getHash(event.newURL);
       var oldHash = getHash(event.oldURL); // ???
 
-      console.log("router hash:" + oldHash + " -> " + newHash); // 如果不是绝对路径，则跳转到绝对路径
+      console.log("router hash:" + oldHash + " -> " + newHash); // 将不合规范url修改为规范url
+
+      var to = newHash || 'index';
+      to = _this.repairUrl(to);
+
+      if (newHash !== to) {
+        setHash(to);
+        return;
+      } // 如果不是绝对路径，则跳转到绝对路径
       // if (!newHash.startsWith('/')) {
       //   setHash(this.repairUrl(newHash));
       //   return;
       // }
       // 无变化
+
 
       if (newHash === oldHash) {
         _this.nextHash = '';
@@ -200,14 +215,9 @@ function () {
      */
     // debugger
     // 默认跳转到首页
-    url = url || 'home';
-    url = this.repairUrl(url);
-    console.log('go ', {
-      url: url,
-      param: param,
-      refresh: refresh,
-      href: location.href
-    }); // 当前网页重新加载，不会触发 hash 事件，直接路由
+    url = url || 'index';
+    url = this.repairUrl(url); // console.log('go ', {url, param, refresh, href: location.href});
+    // 当前网页重新加载，不会触发 hash 事件，直接路由
 
     if (getHash(location.href) === url) {
       // `#${url}`;
@@ -239,24 +249,32 @@ function () {
     if (!url) return '';
 
     try {
-      R = url.endsWith('/') ? url.substr(0, url.length - 1) : url;
-      if (url === '/') R = '/';else if (url === '~') R = "/" + this.opt.owner + "/" + this.opt.name; // else if (url.startsWith('./'))
+      R = url;
+      if (url === '/') R = '/';else if (url === '~') R = "/" + this.owner + "/" + this.name + "/index";else if (url.startsWith('./')) R = "/" + this.owner + "/" + this.name + "/" + this.path + "/" + url.substr(2); // else if (url.startsWith('../'))
       //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
-      // else if (url.startsWith('../'))
-      //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
-      else if (!url.startsWith('/')) R = "/" + this.opt.owner + "/" + this.opt.name + "/" + url;else if (url.startsWith('/')) {
-          var ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/); // default to home
+      else if (!url.startsWith('/')) R = "/" + this.owner + "/" + this.name + "/" + url; // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
+        // /ower/app => /ower/app/index
+        // /ower/app/ => /ower/app/index
+        else if (url.startsWith('/')) {
+            // 自动补充 index
+            var ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/); // default to index
 
-          if (ps) {
-            var owner = ps[1];
-            var name = ps[2];
-            var page = ps[3];
-            if (owner && name && !page) R = "/" + owner + "/" + name + "/home" + ps[4];
-          }
-        }
+            if (ps) {
+              var owner = ps[1];
+              var name = ps[2];
+              var page = ps[3];
+              if (owner && name && !page) R = "/" + owner + "/" + name + "/index" + ps[4];
+            }
+          } // R = url.endsWith('/') ? url.substr(0, url.length - 1) : url;
+      // / 结尾，代表目录，自动加载 index
+      // /ower/app/fea/ => /ower/app/fea/index
+
+      R = R.endsWith('/') ? R + "index" : R; // /ower/app/fea/?a=1 => /ower/app/fea/index?a=1
+
+      R = R.replace(/\/\?/g, 'index?');
       if (R !== url) console.log("router repairUrl:" + url + " -> " + R);
     } catch (e) {
-      console.log("router repairUrl exp:" + e.message);
+      console.error("router repairUrl exp:" + e.message);
     }
 
     return R;
@@ -297,14 +315,25 @@ function () {
         // console.log(`router load url:${url}`);
         // const pos = path.lastIndexOf('/');
         // const name = path.substr(pos + 1);
-        var ps = url.match(/([^/]+)\/([^/]+)\/([^?]+)/);
-        var ower = ps === null || ps === void 0 ? void 0 : ps[1];
+        var ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)/); // const ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/);
+
+        var owner = ps === null || ps === void 0 ? void 0 : ps[1];
         var name = ps === null || ps === void 0 ? void 0 : ps[2];
         var page = ps === null || ps === void 0 ? void 0 : ps[3];
+        if (owner && name && !page) page = 'index';
+        var path = '';
+
+        if (page && page.includes('/')) {
+          var _pos = page.lastIndexOf('/');
+
+          path = page.substr(0, _pos);
+        }
+
         console.log('load', {
-          ower: ower,
+          owner: owner,
           name: name,
-          page: page
+          page: page,
+          path: path
         }); // 本地调试状态，直接获取本地页面
 
         if (_this2.opt.mode === 'local') {
@@ -342,7 +371,8 @@ function () {
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
 
           var pgHtml = new Promise(function (resHtml, rejHtml) {
-            var pgurl = _this2.opt.local + "/page/" + page + ".html?v=" + Date.now();
+            var pgurl = _this2.opt.local + "/page/" + page + ".html?v=" + Date.now(); // console.log('router load html:', {url: pgurl});
+
             $.get(pgurl).then(function (rs) {
               // debugger;
               // console.log('router load html:', {url: pgurl, rs});
@@ -353,9 +383,25 @@ function () {
               var p = new Cls.default({
                 app: _this2.app
               }); // eslint-disable-line
+              // 未考虑切换应用和ower，保存
+
+              if (owner) {
+                if (_this2.owner !== _this2.lastOwner) _this2.lastOwner = _this2.owner;
+                _this2.owner = owner;
+              }
+
+              if (name) {
+                if (_this2.name !== _this2.lastName) _this2.lastName = _this2.name;
+                _this2.name = name;
+              }
+
+              if (path) {
+                if (_this2.path !== _this2.lastPath) _this2.lastPath = _this2.path;
+                _this2.path = path;
+              }
 
               p.html = rs;
-              p.url = "/" + ower + "/" + name + "/" + page;
+              p.url = "/" + owner + "/" + name + "/" + page;
               p.param = param;
 
               _this2.push(p); // save page instance
@@ -381,8 +427,16 @@ function () {
           if (appJs) {
             Promise.all([appJs, appCss]).then(function (rs) {
               // 切换 app
-              _this2.opt.owner = ower;
-              _this2.opt.name = name;
+              if (owner) {
+                if (_this2.ower !== _this2.lastOwer) _this2.lastOwer = _this2.ower;
+                _this2.ower = owner;
+              }
+
+              if (name) {
+                if (_this2.name !== _this2.lastName) _this2.lastName = _this2.name;
+                _this2.name = name;
+              }
+
               _this2.rs = [];
               eval(rs[0]); // eslint-disable-line
 
@@ -414,10 +468,9 @@ function () {
           url = url.substring(1, pos) + "/page/" + page; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
 
           var pgurl = _this2.opt.cos + "/" + url + ".js?v=" + _this2.opt.ver;
-          console.log("router load url:" + pgurl);
           $.get(pgurl).then(function (rs) {
             // debugger;
-            console.log(rs);
+            // console.log(rs);
             var r = JSON.parse(rs);
 
             if (r && r.js) {
@@ -446,7 +499,7 @@ function () {
         }
       });
     } catch (e) {
-      console.log("load exp:" + e.message);
+      console.error("load exp:" + e.message);
     }
 
     return R;
@@ -485,7 +538,6 @@ function () {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
       this.load(url, param).then(function (lr) {
-        // debugger;
         r = _this3.findRoute(url, param, refresh);
         if (r) _this3.to(r, refresh);
       });
@@ -603,13 +655,13 @@ function () {
       if (err) throw err; // console.log('onload html:', html);
       // 创建 页面层
 
-      var p = document.createElement('div');
-      p.innerHTML = html;
-      p = $(p).firstChild();
-      p.id = r.id; // 缓存页面
+      var p = $(html);
+      r.view = p; // dom 对象保存到页面实体的view中
+
+      p.dom.id = r.id; // 缓存页面
       // this._pages[r.id] = p;
 
-      enter(p);
+      enter(p.dom);
     };
 
     var nextPage = this.loaded(r);
@@ -645,19 +697,19 @@ function () {
     };
 
     try {
-      // 把?后面的内容作为 param参数处理，？需包含在hash中，也就是 # 之后
-      var _pos = url.indexOf('?');
+      // 把?后面的内容作为 search 参数处理，？需包含在hash中，也就是 # 之后
+      var _pos2 = url.indexOf('?');
 
-      if (_pos >= 0) {
-        R.url = url.substr(0, _pos);
-        R.search = url.substr(_pos + 1);
+      if (_pos2 >= 0) {
+        R.url = url.substr(0, _pos2);
+        R.search = url.substr(_pos2 + 1);
 
         if (R.search) {
           R.param = {};
           var ps = R.search.split('&');
           ps.forEach(function (p) {
-            _pos = p.indexOf('=');
-            if (_pos > 0) R.param[p.substr(0, _pos)] = p.substr(_pos + 1);
+            _pos2 = p.indexOf('=');
+            if (_pos2 > 0) R.param[p.substr(0, _pos2)] = p.substr(_pos2 + 1);
           });
         }
       }
@@ -670,7 +722,7 @@ function () {
 
       if (url !== R.url) console.log("router parseUrl url:" + url + " -> " + R.url);
     } catch (e) {
-      console.log("router parseUrl exp:" + e.message);
+      console.error("router parseUrl exp:" + e.message);
     }
 
     return R;
@@ -710,7 +762,7 @@ function () {
     return R;
   }
   /**
-   * push route config into routes array
+   * push page into router's array
    * @param {Object} r
    * @returns {Router}
    */
@@ -727,7 +779,8 @@ function () {
       if (exist) {
         console.info("push r.url:" + r.url + " exist.");
         return;
-      }
+      } // 按url自动生成唯一id，该id作为Dom页面的id属性
+
 
       r.id = "" + r.url.replace(/\//g, '-');
       if (r.id.startsWith('-')) r.id = r.id.substr(1); // 将 path 转换为绝对路径
@@ -768,8 +821,7 @@ function () {
 
     if ($.device.ios) {
       to.animationEnd(function () {
-        console.log('animation end.');
-
+        // console.log('animation end.');
         _this5.view.removeClass(aniClass); // from.removeClass('page-previous');
 
 
@@ -780,16 +832,15 @@ function () {
       if (dir === 'backward') end = from; // md to's animation: none, only from's animation
 
       end.animationEnd(function () {
-        console.log('animation end.');
-
+        // console.log('animation end.');
         _this5.view.removeClass(aniClass); // from.removeClass('page-previous');
 
 
         if (cb) cb();
       });
-    }
+    } // console.log('animation start...');
+    // Add class, start animation
 
-    console.log('animation start...'); // Add class, start animation
 
     this.view.addClass(aniClass);
   }
@@ -823,6 +874,8 @@ function () {
    * 如果在动画后调用,会先看到旧页面残留,体验不好
    * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
    * 获取dom 元素时,最好限定在事件参数pg范围获取.
+   * @param {*} r 路由
+   * @param {*} p 页面，Dom 对象
    */
   ;
 
@@ -849,7 +902,7 @@ function () {
       } // r.show(p, r.param);
 
     } catch (ex) {
-      console.log('onShow ', {
+      console.error('onShow ', {
         ex: ex.message
       });
     }
@@ -896,6 +949,7 @@ function () {
     var dir = back ? 'backward' : 'forward';
 
     if (from || to) {
+      // 页面切换动画
       if (from && to) {
         // 开机splash不需要动画
         if (this.noAni) {
@@ -904,9 +958,11 @@ function () {
           this.onShow(r, to);
           this.showPage(r, to);
         } else {
-          // 先触发show事件
-          this.onShow(r, to);
+          // 需要动画，先触发show事件
+          this.onShow(r, to); // 提前处理，切换效果好
+
           this.aniPage(from, to, dir, function () {
+            // 动画结束
             _this7.hidePage(lastr, from);
 
             _this7.showPage(r, to);
