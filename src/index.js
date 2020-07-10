@@ -240,9 +240,9 @@ class Router {
           const page = ps[3];
           if (owner && name && !page) R = `/${owner}/${name}/home${ps[4]}`;
         }
-    }
+      }
 
-    if (R !== url) console.log(`router repairUrl:${url} -> ${R}`);
+      if (R !== url) console.log(`router repairUrl:${url} -> ${R}`);
     } catch (e) {
       console.log(`router repairUrl exp:${e.message}`);
     }
@@ -296,9 +296,9 @@ class Router {
           if (ower !== this.opt.owner || name !== this.opt.name) {
             appJs = new Promise((resJs, rejJs) => {
               const url = `${this.opt.local}/index2.js?v=${Date.now()}`;
-            $.get(url).then(
-              rs => {
-                // debugger;
+              $.get(url).then(
+                rs => {
+                  // debugger;
                   console.log('router load index2.js', {url, rs});
                   resJs(rs); // eslint-disable-line
                 },
@@ -331,6 +331,7 @@ class Router {
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
                 p.html = rs;
                 p.url = `/${ower}/${name}/${page}`;
+                p.param = param;
                 this.push(p); // save page instance
                 resHtml(p);
               },
@@ -367,9 +368,7 @@ class Router {
                     const p = rs2[0];
                     p.css = rs2[1];
                     // 触发 load 事件
-                    if (p.load) {
-                      p.load(param);
-                    }
+                    if (p.load) p.load(param);
 
                     res(p);
                   })
@@ -378,17 +377,15 @@ class Router {
               .catch(err => rej(err));
           } else {
             Promise.all([pgHtml, pgCss])
-            .then(rs => {
-              const p = rs[0];
-							p.css = rs[1];
-							// 触发 load 事件
-							if (p.load) {
-								p.load(param);
-							}
-								
-              res(p);
-            })
-            .catch(err => rej(err));
+              .then(rs => {
+                const p = rs[0];
+                p.css = rs[1];
+                // 触发 load 事件
+                if (p.load) p.load(param);
+
+                res(p);
+              })
+              .catch(err => rej(err));
           }
         } else {
           url = `${url.substring(1, pos)}/page/${page}`;
@@ -410,13 +407,12 @@ class Router {
                 const p = new P.default(); // eslint-disable-line
                 p.html = r.html;
                 p.css = r.css;
+                p.param = param;
                 $.router.push(p);
-								
-								// 触发 load 事件
-								if (p.load) {
-									p.load(param);
-								}
-								
+
+                // 触发 load 事件
+                if (p.load) p.load(param);
+
                 res(p);
               }
             },
@@ -479,6 +475,11 @@ class Router {
 
     // 记录当前 route
     this.lastPage = this.page;
+    // 记录当前 scrollTop
+    if (this.lastPage)
+      this.lastPage.scrollTop = this.lastPage.el.clas(
+        'page-content'
+      ).dom.scrollTop;
     this.page = r;
     $.page = this.page;
     $.lastPage = this.lastPage;
@@ -549,6 +550,8 @@ class Router {
 
       // 记录当前层
       r.page = p;
+      r.el = $(p);
+
       // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
       // 应该判断 hash 是否已经改变，如已改变，则不切换
       // alert(`hash:${this.hash} => ${this.nextHash}`);
@@ -732,12 +735,12 @@ class Router {
 
     // 动画结束，去掉 animation css 样式
     if ($.device.ios) {
-    to.animationEnd(() => {
+      to.animationEnd(() => {
         console.log('animation end.');
-      this.view.removeClass(aniClass);
-      // from.removeClass('page-previous');
-      if (cb) cb();
-    });
+        this.view.removeClass(aniClass);
+        // from.removeClass('page-previous');
+        if (cb) cb();
+      });
     } else {
       let end = to;
       if (dir === 'backward') end = from;
@@ -794,25 +797,27 @@ class Router {
    */
   onShow(r, p) {
     try {
-    if (!r) return;
+      if (!r) return;
 
-    // 重新绑定事件
-    if (r.doReady && r.ready) {
-      // 如果不使用延时，加载无法获取dom节点坐标！
-      //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
-      $.nextTick(() => {
-        r.ready(p, r.param, this.backed);
-      });
-      // r.ready(p, r.param);
-    }
+      // 重新绑定事件
+      if (r.doReady && r.ready) {
+        // 如果不使用延时，加载无法获取dom节点坐标！
+        //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
+        $.nextTick(() => {
+          r.ready(p, r.param, this.backed);
+        });
+        // r.ready(p, r.param);
+      }
 
-    // 触发
-    if (r.show) {
-      $.nextTick(() => {
-        r.show(p, r.param, this.backed);
-      });
-    }
-    // r.show(p, r.param);
+      // 触发
+      if (r.show) {
+        $.nextTick(() => {
+          if (this.backed && r.scrollTop)
+            p.clas('page-content').dom.scrollTop = r.scrollTop;
+          r.show(p, r.param, this.backed);
+        });
+      }
+      // r.show(p, r.param);
     } catch (ex) {
       console.log('onShow ', {ex: ex.message});
     }
