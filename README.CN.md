@@ -74,6 +74,7 @@ $ npm run build
 ## 页面跳转
 
 - 页面跳转：`$.go('a', {x: 1, y: 2}, refresh)`
+  如果 a 标签调用 $.go，需注意其 href 是否设置为 "javascript:;"，或者在 $.go 之前调用 event.preventDefault()，禁止页面刷新。
 - 页面回退：`$.back(refresh)`
   页面回退时，请使用 back，而不是 go，go 会在浏览器的 history 里面新增一个节点。
   比如 A->B->C，如果从 C 回退到 B，使用了 go('B')，浏览器的路由路径为：A->B->C-B，此时使用浏览器的回退按键回退时，页面切换到 C，而不是 A。
