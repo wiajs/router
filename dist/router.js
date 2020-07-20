@@ -1,5 +1,5 @@
 /*!
-  * wia router v0.1.10
+  * wia router v0.1.11
   * (c) 2020 Sibyl Yu
   * @license MIT
   */
@@ -894,17 +894,22 @@
           //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
           $.nextTick(function () {
             r.ready(p, r.param, _this6.backed);
-          }); // r.ready(p, r.param);
+          });
         } // 触发
 
 
-        if (r.show) {
+        if (r.back && this.backed) {
           $.nextTick(function () {
-            if (_this6.backed && r.scrollTop) p.clas('page-content').dom.scrollTop = r.scrollTop;
-            r.show(p, r.param, _this6.backed);
+            if (r.scrollTop) p.clas('page-content').dom.scrollTop = r.scrollTop;
+            r.back(p, r.param);
           });
-        } // r.show(p, r.param);
+        }
 
+        if (r.show && !this.backed) {
+          $.nextTick(function () {
+            r.show(p, r.param);
+          });
+        }
       } catch (ex) {
         console.error('onShow ', {
           ex: ex.message

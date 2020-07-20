@@ -866,18 +866,21 @@ class Router {
         $.nextTick(() => {
           r.ready(p, r.param, this.backed);
         });
-        // r.ready(p, r.param);
       }
 
       // 触发
-      if (r.show) {
+      if (r.back && this.backed) {
         $.nextTick(() => {
-          if (this.backed && r.scrollTop)
-            p.clas('page-content').dom.scrollTop = r.scrollTop;
-          r.show(p, r.param, this.backed);
+          if (r.scrollTop) p.clas('page-content').dom.scrollTop = r.scrollTop;
+          r.back(p, r.param);
         });
       }
-      // r.show(p, r.param);
+
+      if (r.show && !this.backed) {
+        $.nextTick(() => {
+          r.show(p, r.param);
+        });
+      }
     } catch (ex) {
       console.error('onShow ', {ex: ex.message});
     }
