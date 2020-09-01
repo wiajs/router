@@ -25,7 +25,7 @@ const plugins = [
   ['@babel/plugin-proposal-private-methods', {loose}],
   ['@babel/plugin-proposal-function-bind'],
   ['@babel/plugin-proposal-nullish-coalescing-operator'],
-  ['@babel/plugin-proposal-optional-chaining'],
+  ['@babel/plugin-proposal-optional-chaining']
 ];
 
 module.exports = {presets, plugins};

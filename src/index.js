@@ -24,6 +24,12 @@ const DIRECTION = {
   rightToLeft: 'from-right-to-left',
 };
 
+const API = {
+  getCode: 'auth/getCode', // 获取当前登录用户临时code
+  getToken: 'auth/getToken', // 获取指定应用token
+  checkToken: 'auth/checkToken', // 获取指定应用token
+};
+
 const EVENTS = {
   pageLoadStart: 'pageLoadStart', // ajax 开始加载新页面前
   pageLoadCancel: 'pageLoadCancel', // 取消前一个 ajax 加载动作后
@@ -52,11 +58,10 @@ class Router {
     prevClass: 'page-previous', // page 切换旧页面
     showClass: 'page-current', // 显示内容层时添加的样式
     cos: 'https://cos.nuoya.net', //  'http://localhost:3003'
+    api: 'https://wia.pub',
     ver: '1.0.0',
     mode: 'prod', // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
     transition: 'f7-flip',
-    owner: '', // 所有人
-    name: '', // app name
   };
 
   _index = 1;
@@ -104,13 +109,13 @@ class Router {
     this.hash = []; // hash数组
     this.nextHash = ''; // 需到达的 hash
 
-    this.owner = this.opt.owner;
-    this.name = this.opt.name;
-    this.path = ''; // 页面路径，去掉参数部分
+    this.owner = this.opt.owner; // 当前应用所有者
+    this.name = this.opt.name; // 当前应用名称
+    this.path = ''; // 当前应用路径，去掉参数部分
 
-    this.lastOwner = '';
-    this.lastName = '';
-    this.lastPath = '';
+    this.lastOwner = ''; // 上一个应用所有者
+    this.lastName = ''; // 上一个应用名称
+    this.lastPath = ''; // 上一个应用路径
 
     this.backed = false; // 是否为返回
 
@@ -322,66 +327,47 @@ class Router {
 
         console.log('load', {owner, name, page, path});
 
+        if (owner) {
+          if (this.owner !== this.lastOwner) this.lastOwner = this.owner;
+          this.owner = owner;
+        }
+
+        if (name) {
+          if (this.name !== this.lastName) this.lastName = this.name;
+          this.name = name;
+        }
+
+        if (path) {
+          if (this.path !== this.lastPath) this.lastPath = this.path;
+          this.path = path;
+        }
+
+        // 加载页面必须 owner、name 和 page
+        if (!owner || !name || !page) res('');
+        else {
+          this.switchApp(owner, name, path).then(rs => {
+            if (rs) {
         // 本地调试状态，直接获取本地页面
         if (this.opt.mode === 'local') {
           // debugger;
           // 加载 app
           let appJs = null;
           let appCss = null;
-          // 切换应用
-          /*
-          if (ower !== this.opt.owner || name !== this.opt.name) {
-            appJs = new Promise((resJs, rejJs) => {
-              const url = `${this.opt.local}/index2.js?v=${Date.now()}`;
-              $.get(url).then(
-                rs => {
-                  // debugger;
-                  console.log('router load index2.js', {url, rs});
-                  resJs(rs); // eslint-disable-line
-                },
-                err => rejJs(err)
-              );
-            });
 
-            appCss = new Promise((resCss, rejCss) => {
-              const url = `${this.opt.local}/index.css?v=${Date.now()}`;
-              $.get(url).then(
-                rs => {
-                  // debugger;
-                  console.log('router load index.css', {url, rs});
-                  resCss(rs); // eslint-disable-line
-                },
-                err => rejCss(err)
-              );
-            });
-          }
-          */
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
           const pgHtml = new Promise((resHtml, rejHtml) => {
-            const pgurl = `${this.opt.local}/page/${page}.html?v=${Date.now()}`;
+                  const pgurl = `${
+                    this.opt.local
+                  }/${owner}/${name}/page/${page}.html?v=${Date.now()}`;
             // console.log('router load html:', {url: pgurl});
             $.get(pgurl).then(
               rs => {
+                      // 页面获取成功
                 // debugger;
                 // console.log('router load html:', {url: pgurl, rs});
-                // 获得模块对象
+                      // 获得页面模块类，并创建页面对象实例
                 const Cls = __webpack_require__(`./src/page/${page}.js`); // eslint-disable-line
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
-
-                // 未考虑切换应用和owner，保存
-                if (owner) {
-                  if (this.owner !== this.lastOwner)
-                    this.lastOwner = this.owner;
-                  this.owner = owner;
-                }
-                if (name) {
-                  if (this.name !== this.lastName) this.lastName = this.name;
-                  this.name = name;
-                }
-                if (path) {
-                  if (this.path !== this.lastPath) this.lastPath = this.path;
-                  this.path = path;
-                }
 
                 p.html = rs;
                 p.url = `/${owner}/${name}/${page}`;
@@ -394,7 +380,9 @@ class Router {
           });
 
           const pgCss = new Promise((resCss, rejCss) => {
-            const pgurl = `${this.opt.local}/page/${page}.css?v=${Date.now()}`;
+                  const pgurl = `${
+                    this.opt.local
+                  }/page/${page}.css?v=${Date.now()}`;
             // console.log(`router load css:${url}`);
             $.get(pgurl).then(
               rs => {
@@ -416,7 +404,8 @@ class Router {
                   this.owner = owner;
                 }
                 if (name) {
-                  if (this.name !== this.lastName) this.lastName = this.name;
+                        if (this.name !== this.lastName)
+                          this.lastName = this.name;
                   this.name = name;
                 }
                 this.rs = [];
@@ -478,12 +467,151 @@ class Router {
             err => rej(err)
           );
         }
+            }
+          });
+        }
       });
     } catch (e) {
       console.error(`load exp:${e.message}`);
     }
 
     return R;
+  }
+
+  /**
+   * 改变应用
+   * @param {*} owner 所有者
+   * @param {*} name 应用名称
+   * @param {*} path 应用路径
+   */
+  switchApp(owner, name, path) {
+    return new Promise((res, rej) => {
+      let R = false;
+      try {
+        if (owner === this.owner && name === this.name) res(true);
+        else {
+          this.getToken().then(tk => {
+            if (tk) R = true;
+            res(R);
+          });
+        }
+      } catch (e) {
+        console.log('getToken exp:', e.message);
+        res(R);
+      }
+    });
+  }
+
+  /**
+   * 获取指定应用token
+   * @param {*} owner 应用所有者
+   * @param {*} name 应用名称
+   */
+  getToken(owner, name) {
+    const that = this;
+    return new Promise((res, rej) => {
+      let R = '';
+      const key = `${owner}/${name}/token`;
+
+      try {
+        let tk = $.store.get(key);
+        this.checkToken(owner, name, tk).then(rs => {
+          if (rs) {
+            $.app.token = tk;
+            res(tk);
+          } else {
+            tk = $.app.token;
+            $.app.token = '';
+            // const code = await this.getCode(tk);
+            this.getCode(tk).then(code => {
+              if (code) {
+                $.get(
+                  `${that.opt.api}/${owner}/${name}/${API.getToken}`,
+                  `code=${code}`
+                )
+                  .then(r => {
+                    if (r) {
+                      console.log('getToken', {r});
+                      if (r.code === 200) {
+                        tk = r.data.token;
+                        $.app.token = tk;
+                        $.store.set(key, tk);
+                        R = tk;
+                      } else console.error('getToken error', {r});
+                    }
+
+                    res(R);
+                  })
+                  .catch(res(R));
+              } else {
+                console.error('getToken fail! no code.');
+                res(R);
+              }
+            });
+          }
+        });
+      } catch (e) {
+        console.error('getToken exp:', e.message);
+      }
+      return R;
+    });
+  }
+
+  /**
+   * 检查当前token是否有效
+   * @param {*} owner 应用所有者
+   * @param {*} name 应用名称
+   * @param {*} token 用户持有的身份令牌
+   */
+  checkToken(owner, name, token) {
+    return new Promise((res, rej) => {
+      let R = false;
+      try {
+        if (!token) res(R);
+        else {
+          $.get(
+            `${this.opt.api}/${owner}/${name}/${API.checkToken}`,
+            `token=${token}`
+          )
+            .then(rs => {
+              console.log('checkToken', {token, rs});
+              // {res: true, expire: 秒数}
+              if (rs.code === 200) {
+                const exp = rs.data.expire; // 过期时刻，1970-01-01 之后的秒数
+                R = rs.data.res;
+              }
+              res(R);
+            })
+            .catch(res(R));
+        }
+      } catch (e) {
+        console.error('checkToken exp:', e.message);
+        res(R);
+      }
+    });
+  }
+
+  /**
+   * 通过当前登录token获取用户临时code，用于跨应用授权
+   * @param {*} token 用户持有的身份令牌
+   */
+  getCode(token) {
+    return new Promise((res, rej) => {
+      let R = '';
+      try {
+        $.get(`${this.opt.api}/${API.getCode}`, `token=${token}`)
+          .then(rs => {
+            console.log('getCode', {token, rs});
+            if (rs.code === 200) R = rs.data;
+            else console.error('getCode fail.', {token, rs});
+            res(R);
+          })
+          .catch(res(R));
+      } catch (e) {
+        console.error('getCode exp:', e.message);
+        res(R);
+      }
+    });
   }
 
   addCss(css) {
@@ -1000,7 +1128,8 @@ function setTitle(val) {
       const fr = document.createElement('iframe');
       // fr.style.visibility = 'hidden';
       fr.style.display = 'none';
-      fr.src = 'img/favicon.ico';
+      // 避免大量服务器无效访问
+      // fr.src = 'img/favicon.ico';
       fr.onload = () => {
         setTimeout(() => {
           document.body.removeChild(fr);
