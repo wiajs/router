@@ -1,5 +1,74 @@
 # Change Log
 
+## 2021-07-12
+
+build.js
+
+terser 升级版本后，改为异步！
+
+index.js
+
+- 切换 app 时，验证身份
+  - auth/getCode
+  - auth/getToken
+  - auth/checkToken
+- 全局 as 缓存所有 app
+- 全局 vs 缓存 Page 实例中的 dom 视图
+- page、lastPage Page 实例
+- owner、appName、path、lastOwner、lastName、lastPaht 当前应用与前应用
+- 触发 app 的 load、show、hide、unload 事件
+- \+ switchApp
+- \+ getCode
+- \+ getToken
+- \+ checkToken
+- \* findRoute 改为 findPage
+- \+ findApp
+- \+ back 从 show 中独立出来，方便前端处理回退
+- \+ pageEvent 页面 Page 实例事件触发，f7 UI 组件需要
+- setTitle 修改微信 title
+
+## 2020-09-01
+
+增加切换应用时，自动获取该应用 token 功能，不同应用，token 不同
+
+- switchApp
+- getCode
+- getToken
+
+## 2020-07-19
+
+- onShow
+  back 与 show 分开
+  回退时，触发 back
+  非回退时，触发 show
+
+index.js
+
+## 2020-07-10
+
+index.js
+
+- constructor
+  this.owner = this.opt.owner;
+  this.name = this.opt.name;
+  this.path = ''; // 页面路径，去掉参数部分
+
+      	this.lastOwner = '';
+      	this.lastName = '';
+      	this.lastPath = '';
+
+      	记录当前应用，发布应用切换时处理相关安全问题。
+
+- addEventListener
+  repairUrl 将不合规范 url 修改为规范 url
+
+      	默认 home页 改为 index 页
+
+- repairUrl
+  支持 相对路径
+- to
+  dom 对象保存到页面实体的 view 中
+
 ## 2020-06-03
 
 index.js
