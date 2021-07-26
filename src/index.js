@@ -1187,14 +1187,13 @@ class Router {
    * @private
    */
   pageEvent(ev, p, v) {
+    try {
     if (!p || !v) return;
 
     const r = this; // router
     if (!v.length) return;
 
-    const camelName = `page${
-      ev[0].toUpperCase() + ev.slice(1, ev.length)
-    }`;
+      const camelName = `page${ev[0].toUpperCase() + ev.slice(1, ev.length)}`;
     const colonName = `page:${ev.toLowerCase()}`;
 
     const page = {$el: v, el: v.dom};
@@ -1221,7 +1220,7 @@ class Router {
     // }
 
     // pageInit event
-    if (callback === 'init') {
+      if (ev === 'init') {
       // attachEvents();
 
       if (v[0].f7PageInitialized) {
@@ -1236,6 +1235,9 @@ class Router {
     v.trigger(colonName, page);
     // 触发页面模块事件
     r.app.emit(camelName, page);
+    } catch (ex) {
+      console.error(`pageEvent exp:${ex.message}`);
+    }
   }
 }
 
