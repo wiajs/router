@@ -1,5 +1,17 @@
 # Change Log
 
+## 2021-08-01
+
+- app.load 改为 app.ready
+- 支持 master-detail
+  pg-master page 页面不会隐藏。
+  先 go 到 master 页面，再 go 到 master-detail 页面，master 页面一直存在。
+  一般用于 pc 的左菜单，点击菜单，右边页面切换，菜单不刷新。
+
+## 2021-07-23
+
+修正 pageEvent bug
+
 ## 2021-07-12
 
 build.js
