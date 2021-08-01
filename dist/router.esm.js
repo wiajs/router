@@ -1,6 +1,6 @@
 /*!
   * wia router v0.1.1
-  * (c) 2020 Sibyl Yu
+  * (c) 2021 Sibyl Yu
   * @license MIT
   */
 function _extends() {
@@ -36,7 +36,7 @@ var API = {
   // 获取当前登录用户临时code
   getToken: 'auth/getToken',
   // 获取指定应用token
-  checkToken: 'auth/checkToken' // 获取指定应用token
+  checkToken: 'auth/checkToken' // 指定应用token
 
 };
 /**
@@ -46,8 +46,9 @@ var API = {
 var Router = /*#__PURE__*/function () {
   // default option
   // container element
-  // 存放所有路由对象
-  // 缓存显示的页面
+  // 缓存所有app实例
+  // 缓存所有page实例
+  // 缓存所有Page中的dom视图
   // 当前路由所处的网址，实际上是hash部分！
   // 带参数的完整hash数组，回退pop，前进push
   // start route config
@@ -81,8 +82,9 @@ var Router = /*#__PURE__*/function () {
     };
     this._index = 1;
     this.view = null;
-    this.rs = [];
+    this.as = {};
     this.ps = {};
+    this.vs = {};
     this.url = '';
     this.hash = [];
     this.splash = false;
@@ -95,9 +97,9 @@ var Router = /*#__PURE__*/function () {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
     // }
     // Router.instance = this; // 是否控制为单例？
-    this.opt = $.assign({}, this.opt, opt);
-    this.app = this.opt.app;
-    this.app.router = this;
+    this.opt = $.assign({}, this.opt, opt); // this.app = this.opt.app;
+    // this.app.router = this;
+
     this.view = $("#" + this.opt.view);
     this.style = null; // 新增样式 $.id(this.opt.style);
 
@@ -107,10 +109,14 @@ var Router = /*#__PURE__*/function () {
     this.page = null; // 当前 page 实例
 
     this.lastPage = null; // 上一个 page 实例
+
+    this.lastApp = null; // 上一个应用实例
     // 方便全局访问
 
-    $.view = this.view;
-    $.router = this; // splash 开机画面不需要 动画
+    $.view = this.view; // $化视图
+
+    $.router = this; // 全局路由
+    // splash 开机画面不需要 动画
 
     this.splash = true;
     this.lastHash = ''; // 前hash
@@ -119,12 +125,6 @@ var Router = /*#__PURE__*/function () {
 
     this.nextHash = ''; // 需到达的 hash
 
-    this.owner = this.opt.owner; // 当前应用所有者
-
-    this.appName = this.opt.name; // 当前应用名称
-
-    this.path = ''; // 当前应用路径，去掉参数部分
-
     this.lastOwner = ''; // 上一个应用所有者
 
     this.lastName = ''; // 上一个应用名称
@@ -132,7 +132,45 @@ var Router = /*#__PURE__*/function () {
     this.lastPath = ''; // 上一个应用路径
 
     this.backed = false; // 是否为返回
-    // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
+
+    this.owner = this.opt.owner; // 当前应用所有者
+
+    this.appName = this.opt.name; // 当前应用名称
+
+    this.path = ''; // 当前应用路径，去掉参数部分，不包括页面文件，a/b/c/1.html?x=1 为：c
+    // 当前应用实例
+    // 创建路由时，需创建启动 app，每个应用都可能成为wia store 入口
+
+    var appCls = null;
+    if (this.opt.mode === 'local') // eslint-disable-next-line
+      appCls = __webpack_require__('./src/index.js'); // eslint-disable-line
+    else appCls = __m__("./" + this.owner + "/" + this.name + "/src/index.js"); // eslint-disable-line
+    // eslint-disable-next-line
+
+    var app = new appCls.default({
+      // App root element
+      root: this.opt.root,
+      owner: this.opt.owner,
+      name: this.opt.name,
+      init: true // 启动wia应用时，创建路由，同时创建app
+
+    });
+    this.app = app;
+    $.app = this.app;
+    if (app.load) // 重新绑定事件
+      $.nextTick(function () {
+        app.load();
+      });
+    if (app.show) // 重新绑定事件
+      $.nextTick(function () {
+        var hash = window.location.hash;
+        if (hash.startsWith('#')) hash = hash.substr(1);
+        if (hash.startsWith('!')) hash = hash.substr(1);
+        hash = hash.indexOf('?') > -1 ? hash.replace(/\?\S*/, '') : hash; // const param = $.urlParam();
+
+        var param = $.urlParam();
+        app.show(hash, param);
+      }); // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
     // pushState 不支持 微信侧滑返回
     // 不带 hash 到 hash,返回时, 不能触发该事件,因此一开始就要设置 hash,否则无法回到 首页!
     // 监控url hash变化
@@ -143,7 +181,8 @@ var Router = /*#__PURE__*/function () {
 
       console.log("router hash:" + oldHash + " -> " + newHash); // 将不合规范url修改为规范url
 
-      var to = newHash || 'index';
+      var to = newHash || 'index'; // debugger;
+
       to = _this.repairUrl(to);
 
       if (newHash !== to) {
@@ -220,7 +259,7 @@ var Router = /*#__PURE__*/function () {
      r.refresh = refresh;
      }
      */
-    // debugger
+    // debugger;
     // 默认跳转到首页
     url = url || 'index';
     url = this.repairUrl(url); // console.log('go ', {url, param, refresh, href: location.href});
@@ -257,20 +296,23 @@ var Router = /*#__PURE__*/function () {
 
     try {
       R = url;
-      if (url === '/') R = '/';else if (url === '~') R = "/" + this.owner + "/" + this.appName + "/index";else if (url.startsWith('./')) R = "/" + this.owner + "/" + this.appName + "/" + this.path + "/" + url.substr(2); // else if (url.startsWith('../'))
+      if (url === '/') R = '/';else if (url === '~') R = "/" + this.owner + "/" + this.appName + "/index"; // else if (url.startsWith('../'))
       //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
-      else if (!url.startsWith('/')) R = "/" + this.owner + "/" + this.appName + "/" + url; // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
+      // 当前路径
+      else if (url.startsWith('./') && this.path) {
+          R = "/" + this.owner + "/" + this.appName + "/" + this.path + "/" + url.substr(2);
+        } else if (!url.startsWith('/')) R = "/" + this.owner + "/" + this.appName + "/" + url; // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
         // /ower/app => /ower/app/index
         // /ower/app/ => /ower/app/index
         else if (url.startsWith('/')) {
             // 自动补充 index
-            var ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/); // default to index
+            var ms = url.match(/([^/?]+)\/([^/?]+)\/?([^?]*)([\s\S]*)/); // default to index
 
-            if (ps) {
-              var owner = ps[1];
-              var name = ps[2];
-              var page = ps[3];
-              if (owner && name && !page) R = "/" + owner + "/" + name + "/index" + ps[4];
+            if (ms) {
+              var owner = ms[1];
+              var name = ms[2];
+              var page = ms[3];
+              if (owner && name && !page) R = "/" + owner + "/" + name + "/index" + ms[4];
             }
           } // R = url.endsWith('/') ? url.substr(0, url.length - 1) : url;
       // / 结尾，代表目录，自动加载 index
@@ -278,7 +320,7 @@ var Router = /*#__PURE__*/function () {
 
       R = R.endsWith('/') ? R + "index" : R; // /ower/app/fea/?a=1 => /ower/app/fea/index?a=1
 
-      R = R.replace(/\/\?/g, 'index?');
+      R = R.replace(/\/\?/g, '/index?');
       if (R !== url) console.log("router repairUrl:" + url + " -> " + R);
     } catch (e) {
       console.error("router repairUrl exp:" + e.message);
@@ -302,7 +344,7 @@ var Router = /*#__PURE__*/function () {
   ;
 
   _proto.loaded = function loaded(r) {
-    return $.id(r.id) || this.ps[r.id];
+    return $.id(r.id) || this.vs[r.id];
   }
   /**
    * 动态下载页面js，里面包括js、html和css
@@ -322,18 +364,18 @@ var Router = /*#__PURE__*/function () {
         // console.log(`router load url:${url}`);
         // const pos = path.lastIndexOf('/');
         // const name = path.substr(pos + 1);
-        var ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)/); // const ps = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/);
+        var ms = url.match(/([^/]+)\/([^/]+)\/?([^?]*)/); // const ms = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/);
 
-        var owner = ps === null || ps === void 0 ? void 0 : ps[1];
-        var name = ps === null || ps === void 0 ? void 0 : ps[2];
-        var page = ps === null || ps === void 0 ? void 0 : ps[3];
+        var owner = ms === null || ms === void 0 ? void 0 : ms[1];
+        var name = ms === null || ms === void 0 ? void 0 : ms[2];
+        var page = ms === null || ms === void 0 ? void 0 : ms[3]; // 默认page 为 index
+
         if (owner && name && !page) page = 'index';
         var path = '';
 
         if (page && page.includes('/')) {
-          var _pos = page.lastIndexOf('/');
-
-          path = page.substr(0, _pos);
+          var pos = page.lastIndexOf('/');
+          path = page.substr(0, pos);
         }
 
         console.log('load', {
@@ -345,13 +387,10 @@ var Router = /*#__PURE__*/function () {
 
         if (!owner || !name || !page) res(''); // 本地调试状态，直接获取本地页面
         else if (_this2.opt.mode === 'local') {
-            // debugger;
-            // 加载 app
-            var appJs = null;
             var appCss = null; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
 
             var pgHtml = new Promise(function (resHtml, rejHtml) {
-              var pgurl = _this2.opt.local + "/" + owner + "/" + name + "/page/" + page + ".html?v=" + Date.now(); // console.log('router load html:', {url: pgurl});
+              var pgurl = _this2.opt.local + "/page/" + page + ".html?v=" + Date.now(); // console.log('router load html:', {url: pgurl});
 
               $.get(pgurl).then(function (rs) {
                 // 页面获取成功
@@ -373,7 +412,7 @@ var Router = /*#__PURE__*/function () {
                 p.url = "/" + owner + "/" + name + "/" + page;
                 p.path = path;
 
-                _this2.push(p); // save page instance
+                _this2.cachePage(p); // save page instance
 
 
                 resHtml(p);
@@ -382,7 +421,7 @@ var Router = /*#__PURE__*/function () {
               });
             });
             var pgCss = new Promise(function (resCss, rejCss) {
-              var pgurl = _this2.opt.local + "/" + owner + "/" + name + "/page/" + page + ".css?v=" + Date.now(); // console.log(`router load css:${url}`);
+              var pgurl = _this2.opt.local + "/page/" + page + ".css?v=" + Date.now(); // console.log(`router load css:${url}`);
 
               $.get(pgurl).then(function (rs) {
                 // debugger;
@@ -392,72 +431,44 @@ var Router = /*#__PURE__*/function () {
                 return rejCss(err);
               });
             });
+            Promise.all([pgHtml, pgCss]).then(function (rs) {
+              var p = rs[0];
+              p.css = rs[1]; // eslint-disable-line
+              // 触发 load 事件
 
-            if (appJs) {
-              Promise.all([appJs, appCss]).then(function (rs) {
-                // 切换 app
-                if (owner) {
-                  if (_this2.owner !== _this2.lastOwner) _this2.lastOwner = _this2.owner;
-                  _this2.owner = owner;
-                }
-
-                if (name) {
-                  if (_this2.appName !== _this2.lastName) _this2.lastName = _this2.appName;
-                  _this2.appName = name;
-                }
-
-                _this2.rs = [];
-                eval(rs[0]); // eslint-disable-line
-
-                var appcss = rs[1];
-                Promise.all([pgHtml, pgCss]).then(function (rs2) {
-                  var p = rs2[0];
-                  p.css = rs2[1]; // 触发 load 事件
-
-                  if (p.load) p.load(param);
-                  res(p);
-                }).catch(function (err) {
-                  return rej(err);
-                });
-              }).catch(function (err) {
-                return rej(err);
-              });
-            } else {
-              Promise.all([pgHtml, pgCss]).then(function (rs) {
-                var p = rs[0];
-                p.css = rs[1]; // 触发 load 事件
-
-                if (p.load) p.load(param);
-                res(p);
-              }).catch(function (err) {
-                return rej(err);
-              });
-            }
+              if (p.load) p.load(param);
+              res(p);
+            }).catch(function (err) {
+              return rej(err);
+            });
           } else {
-            url = url.substring(1, pos) + "/page/" + page; // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
+            // debugger;
+            if (_this2.opt.cos.includes('localhost:')) url = _this2.opt.cos + "/page/" + page + ".js?v=" + Date.now();else url = _this2.opt.cos + "/" + owner + "/" + name + "/page/" + page + ".js?v=" + Date.now(); // console.log('router load page:', {url});
 
-            var pgurl = _this2.opt.cos + "/" + url + ".js?v=" + _this2.opt.ver;
-            $.get(pgurl).then(function (rs) {
+            $.get(url).then(function (r) {
               // debugger;
-              // console.log(rs);
-              var r = JSON.parse(rs);
+              console.log(r);
 
               if (r && r.js) {
                 var k = Object.keys(r.js)[0];
                 var code = r.js[k];
+                $.M.add(r.js); // console.log(r.js);
 
-                $._m.add(r.js); // console.log(r.js);
-
-
-                var P = $._m(k); // 加载该模块
-
+                var P = $.M(k); // 加载该模块
 
                 var p = new P.default(); // eslint-disable-line
 
                 p.html = r.html;
                 p.css = r.css;
-                p.param = param;
-                $.router.push(p); // 触发 load 事件
+                p.param = param; // 保存应用所有者和应用名称
+
+                p.owner = owner;
+                p.appName = name;
+                p.url = "/" + owner + "/" + name + "/" + page;
+                p.path = path;
+
+                _this2.cachePage(p); // 触发 load 事件
+
 
                 if (p.load) p.load(param);
                 res(p);
@@ -485,22 +496,69 @@ var Router = /*#__PURE__*/function () {
   _proto.switchApp = function switchApp(owner, name, path) {
     var _this3 = this;
 
-    return new Promise(function (res, rej) {
-      var R = false;
+    if (owner === this.owner && name === this.appName) {
+      if (path !== this.path) this.path = path;
+      return Promise.resolve(true);
+    } // 切换需获取新应用token
 
-      try {
-        // 未切换
-        if (owner === _this3.owner && name === _this3.appName) res(true);else {
-          // 切换需获取新应用token
-          _this3.getToken().then(function (tk) {
-            if (tk) R = true;
-            res(R);
-          });
+
+    this.getToken(owner, name).then(function (tk) {
+      if (tk) {
+        // 应用切换处理
+        if (owner) {
+          if (_this3.owner !== _this3.lastOwner) _this3.lastOwner = _this3.owner;
+          _this3.owner = owner;
         }
-      } catch (e) {
-        console.log('getToken exp:', e.message);
-        res(R);
+
+        if (name) {
+          if (_this3.appName !== _this3.lastName) _this3.lastName = _this3.appName;
+          _this3.appName = name;
+        }
+
+        if (path) {
+          if (_this3.path !== _this3.lastPath) _this3.lastPath = _this3.path;
+          _this3.path = path;
+        }
+
+        var app = _this3.findApp(owner, name); // 需创建应用
+
+
+        if (!app) {
+          var appCls = null;
+          if (_this3.opt.mode === 'local') // eslint-disable-next-line
+            appCls = __webpack_require__('./src/app.js'); // eslint-disable-line
+          else appCls = __m__("./" + _this3.owner + "/" + _this3.name + "/src/app.js"); // eslint-disable-line
+          // eslint-disable-next-line
+
+          app = new appCls.default({
+            // App root element
+            root: _this3.opt.root,
+            owner: _this3.opt.owner,
+            name: _this3.opt.name,
+            init: false
+          });
+          _this3.as[owner + "." + name] = app;
+          if (app.load) // 重新绑定事件
+            $.nextTick(function () {
+              app.load();
+            });
+        }
+
+        _this3.lastApp = _this3.app;
+        if (_this3.lastApp.hide) $.nextTick(function () {
+          _this3.lastApp.hide();
+        });
+        _this3.app = app;
+        if (app.show) $.nextTick(function () {
+          app.show();
+        });
+        return true;
       }
+
+      return false;
+    }).catch(function (err) {
+      console.log('switchApp err:', err);
+      return false;
     });
   }
   /**
@@ -659,54 +717,38 @@ var Router = /*#__PURE__*/function () {
       param: param,
       refresh: refresh
     });
-    var r = this.findRoute(url, param, refresh);
-    if (r) this.to(r, refresh);else {
+    var p = this.findPage(url, param, refresh);
+    if (p) this.to(p, refresh);else {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
       this.load(url, param).then(function (lr) {
-        r = _this7.findRoute(url, param, refresh);
-        if (r) _this7.to(r, refresh);
+        p = _this7.findPage(url, param, refresh);
+        if (p) _this7.to(p, refresh);
       });
     }
   }
   /**
    * 切换到指定页面
-   * @param {*} r 当前
+   * @param {*} p 当前page实例
    */
   ;
 
-  _proto.to = function to(r, refresh) {
+  _proto.to = function to(p, refresh) {
     var _this8 = this;
 
-    if (!r) {
+    if (!p) {
       console.error('route to null page.');
       return;
     } // 切换应用
 
 
-    this.switchApp(r.owner, r.appName, r.path).then(function (rt) {
+    this.switchApp(p.owner, p.appName, p.path).then(function (rt) {
       if (rt) {
-        // 应用切换处理
-        if (r.owner) {
-          if (_this8.owner !== _this8.lastOwner) _this8.lastOwner = _this8.owner;
-          _this8.owner = r.owner;
-        }
-
-        if (r.appName) {
-          if (_this8.appName !== _this8.lastName) _this8.lastName = _this8.appName;
-          _this8.appName = r.appName;
-        }
-
-        if (r.path) {
-          if (_this8.path !== _this8.lastPath) _this8.lastPath = _this8.path;
-          _this8.path = r.path;
-        } // 记录当前page实例
-
-
+        // 记录当前page实例
         _this8.lastPage = _this8.page; // 记录当前 scrollTop
 
         if (_this8.lastPage) _this8.lastPage.scrollTop = _this8.lastPage.el.clas('page-content').dom.scrollTop;
-        _this8.page = r;
+        _this8.page = p;
         $.page = _this8.page;
         $.lastPage = _this8.lastPage; // 切换app
         // alert(`routeTo url:${r.url}`);
@@ -716,81 +758,83 @@ var Router = /*#__PURE__*/function () {
         var rs = _this8.lasts;
         _this8.backed = false; // 如果切换的是前一个page，则为回退！
 
-        if (rs.length > 1 && rs[rs.length - 2].id === r.id) {
+        if (rs.length > 1 && rs[rs.length - 2].id === p.id) {
           _this8.backed = true;
           console.log("to back id:" + rs[rs.length - 2].id + " <- " + _this8.lastPage.id);
           rs.pop();
-        } else if (rs.length > 0 && rs[rs.length - 1].id === r.id) {
-          console.log("to same id: " + r.id);
-        } else if (rs.length === 0 || rs.length > 0 && rs[rs.length - 1].id !== r.id) {
-          if (rs.length > 0) console.log("to id:" + rs[rs.length - 1].id + " -> " + r.id);else console.log("to id:null -> " + r.id);
+        } else if (rs.length > 0 && rs[rs.length - 1].id === p.id) {
+          console.log("to same id: " + p.id);
+        } else if (rs.length === 0 || rs.length > 0 && rs[rs.length - 1].id !== p.id) {
+          if (rs.length > 0) console.log("to id:" + rs[rs.length - 1].id + " -> " + p.id);else console.log("to id:null -> " + p.id);
           rs.push(_this8.page);
         } // 进入跳转的页面
 
 
         var enter = function enter(pg) {
-          r.doReady = false; // 页面上是否存在，已经隐藏
+          p.doReady = false; // 页面上是否存在，已经隐藏
 
-          var p = $.id(r.id); // debugger;
+          var v = $.id(p.id); // debugger;
           // 页面上不存在，则从缓存获取，并加载到主页面
 
-          if (!p) {
-            // 从缓存加载
-            p = _this8.ps[r.id];
+          if (!v) {
+            // 从缓存加载到页面，触发ready
+            v = _this8.vs[p.id]; // dom实例
+            // 缓存也不存在，表明是刚Load，第一次加载到页面，触发Ready事件
 
-            if (!p && pg) {
-              p = pg; // 缓存页面
+            if (!v && pg) {
+              v = pg; // 缓存页面
 
-              _this8.ps[r.id] = p;
-              r.doReady = true;
+              _this8.vs[p.id] = v;
+              p.doReady = true;
             }
 
-            if (p) {
+            if (v) {
               // back 插在前面
               // forward添加在后面，并移到左侧
               if (_this8.view) {
                 // this.style.href = r.style;
-                _this8.addCss(r.css); // 准备 css
+                _this8.addCss(p.css); // 准备 css
 
 
-                var $p = $(p);
+                var $v = $(v);
 
                 if (_this8.backed && _this8.view.hasChild()) {
-                  if (_this8.opt.className) $p.addClass("" + _this8.opt.className);
-                  if (_this8.opt.prevClass) $p.addClass("" + _this8.opt.prevClass);
+                  if (_this8.opt.className) $v.addClass("" + _this8.opt.className);
+                  if (_this8.opt.prevClass) $v.addClass("" + _this8.opt.prevClass);
 
-                  _this8.view.dom.insertBefore(p, _this8.view.dom.children[0]);
+                  _this8.view.dom.insertBefore(v, _this8.view.dom.children[0]);
                 } else {
-                  if (_this8.opt.className) $p.addClass("" + _this8.opt.className);
-                  if (_this8.opt.nextClass) $p.addClass("" + _this8.opt.nextClass);
+                  if (_this8.opt.className) $v.addClass("" + _this8.opt.className);
+                  if (_this8.opt.nextClass) $v.addClass("" + _this8.opt.nextClass);
 
-                  _this8.view.dom.appendChild(p);
+                  _this8.view.dom.appendChild(v);
                 }
               }
 
-              if (r.doReady) $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
+              if (p.doReady) $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
             }
           } // 记录当前层
 
 
-          r.page = p;
-          r.el = $(p); // view 层保存在el中
-          // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
+          p.el = $(v); // view 层保存在el中
+
+          p.view = p.el;
+          p.dom = p.el.dom; // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
           // 应该判断 hash 是否已经改变，如已改变，则不切换
           // alert(`hash:${this.hash} => ${this.nextHash}`);
 
           if (!_this8.nextHash || _this8.nextHash === _this8.hash[_this8.hash.length - 1]) {
-            _this8.switchPage(_this8.lastPage, r, _this8.backed);
+            _this8.switchPage(_this8.lastPage, p, _this8.backed);
           }
         }; // 强制刷新，删除存在页面及缓存
 
 
         if (refresh) {
-          var p = $.id(r.id);
-          if (p) $.remove(p); // 删除缓存
+          var v = $.id(p.id);
+          if (v) $.remove(v); // 删除缓存
 
-          p = _this8.ps[r.id];
-          if (p) delete _this8.ps[r.id];
+          v = _this8.vs[p.id];
+          if (v) delete _this8.vs[p.id];
         } // 加载页面视图回调
 
 
@@ -802,22 +846,23 @@ var Router = /*#__PURE__*/function () {
           if (err) throw err; // console.log('onload html:', html);
           // 创建 页面层
 
-          var p = $(html);
-          r.view = p; // dom 对象保存到页面实体的view中
+          var $v = $(html);
+          p.view = $v; // dom 对象保存到页面实体的view中
 
-          p.dom.id = r.id; // 缓存页面
-          // this._pages[r.id] = p;
+          p.el = $v;
+          p.dom = $v.dom;
+          $v.dom.id = p.id; // 进入页面
 
           enter(p.dom);
         };
 
-        var nextPage = _this8.loaded(r);
+        var nextPage = _this8.loaded(p);
 
-        var curPage = _this8.getCurrentPage(); // 页面不存在则加载页面
+        _this8.getCurrentPage(); // 页面不存在则加载页面
 
 
         if (!nextPage) {
-          onload(null, r.html); // if (r.load) // 加载视图
+          onload(null, p.html); // if (r.load) // 加载视图
           //   r.load.then((html) => {onload(null, html)});
           // else if (r.view) // 兼容
           //   r.view(onload);
@@ -826,6 +871,8 @@ var Router = /*#__PURE__*/function () {
         } else enter(); // 存在则直接进入
 
       }
+    }).catch(function (err) {
+      return console.error('to err:', err);
     });
   }
   /**
@@ -847,29 +894,27 @@ var Router = /*#__PURE__*/function () {
 
     try {
       // 把?后面的内容作为 search 参数处理，？需包含在hash中，也就是 # 之后
-      var _pos2 = url.indexOf('?');
+      var pos = url.indexOf('?');
 
-      if (_pos2 >= 0) {
-        R.url = url.substr(0, _pos2);
-        R.search = url.substr(_pos2 + 1);
+      if (pos >= 0) {
+        R.url = url.substr(0, pos);
+        R.search = url.substr(pos + 1);
 
         if (R.search) {
           R.param = {};
           var ps = R.search.split('&');
           ps.forEach(function (p) {
-            _pos2 = p.indexOf('=');
-            if (_pos2 > 0) R.param[p.substr(0, _pos2)] = p.substr(_pos2 + 1);
+            pos = p.indexOf('=');
+            if (pos > 0) R.param[p.substr(0, pos)] = p.substr(pos + 1);
           });
         }
       }
 
-      R.url = this.repairUrl(R.url); // if (R.path.startsWith('../')) {
-      //   R.path = R.path.replace('../', `/${this.opt.owner}/`);
-      // }
-      // else if (!R.path.startsWith('/'))
-      //   R.path = `/${this.opt.owner}/${this.opt.name}/${R.path}`;
+      R.url = this.repairUrl(R.url);
+      var ms = url.match(/([^/]+)\/([^/]+)\/([^?]+)/); // eslint-disable-next-line prefer-destructuring
 
-      if (url !== R.url) console.log("router parseUrl url:" + url + " -> " + R.url);
+      if (ms) R.path = ms[3];
+      if (url !== R.url) console.log("router parseUrl url:" + url + " -> " + R.url + " path:" + R.path);
     } catch (e) {
       console.error("router parseUrl exp:" + e.message);
     }
@@ -878,30 +923,29 @@ var Router = /*#__PURE__*/function () {
   }
   /**
    * get route from routes filter by url
+   * /ower/name/pag，去掉参数，参数放入 r.param
    * @param {String} url /ower/name/page
    * @param {Object} param
    * @returns {Object}
    */
   ;
 
-  _proto.findRoute = function findRoute(url, param, refresh) {
+  _proto.findPage = function findPage(url, param, refresh) {
     var R = null;
     var rs = this.parseUrl(url); // for (let i = 0, len = this.rs.length; i < len; i++) {
 
-    var r = this.rs.find(function (rt) {
-      return rt.url === rs.url;
-    });
+    var r = this.ps[rs.url]; // find(rt => rt.url === rs.url);
 
     if (!r) {
-      console.log('findRoute not find!', {
+      console.log('findPage not find!', {
         url: url
       });
     } else {
       if (rs.param) r.param = _extends({}, rs.param);else r.param = {};
       if (param) $.assign(r.param, param); // 记录当前 path
+      // r.path = rs.path;
+      // r.url = url;
 
-      r.path = rs.path;
-      r.url = url;
       r.lastSearch = r.search;
       r.search = rs.search;
       r.refresh = refresh;
@@ -911,45 +955,54 @@ var Router = /*#__PURE__*/function () {
     return R;
   }
   /**
-   * push page into router's array
-   * @param {Object} r
+   * 从缓存中查找应用，避免重新加载
+   * @param {String} url /ower/name/page
+   * @param {Object} param
+   * @returns {Object}
+   */
+  ;
+
+  _proto.findApp = function findApp(owner, name, param, reload) {
+    var R = null;
+    var app = this.as[owner + "." + name];
+
+    if (!app) {
+      console.log('findApp not find!', {
+        owner: owner,
+        name: name
+      });
+    } else {
+      app.param = {};
+      if (param) $.assign(app.param, param);
+      app.reload = reload;
+      R = app;
+    }
+
+    return R;
+  }
+  /**
+   * cache page instance
+   * @param {Object} p
    * @returns {Router}
    */
   ;
 
-  _proto.push = function push(r) {
+  _proto.cachePage = function cachePage(p) {
     try {
-      if (!r) throw new Error('page is empty!');
-      if (!r.url) throw new Error("page's url is empty!");
-      var exist = this.rs.find(function (rt) {
-        return rt.url === r.url;
-      });
+      if (!p) throw new Error('page is empty!');
+      if (!p.url) throw new Error("page's url is empty!"); // 按url自动生成唯一id，该id作为Dom页面的id属性
 
-      if (exist) {
-        console.info("push r.url:" + r.url + " exist.");
-        return;
-      } // 按url自动生成唯一id，该id作为Dom页面的id属性
-
-
-      r.id = "" + r.url.replace(/\//g, '-');
-      if (r.id.startsWith('-')) r.id = r.id.substr(1); // 将 path 转换为绝对路径
+      p.id = "" + p.url.replace(/\//g, '-');
+      if (p.id.startsWith('-')) p.id = p.id.substr(1); // 将 path 转换为绝对路径
       // r.path = `/${this.opt.owner}/${this.opt.name}/${r.path}`;
 
-      r.ready = r.ready || $.noop;
-      r.router = this;
-      /*
-       const r = Object.assign({}, {
-       path: '*',
-       // view: $.noop,
-       ready: $.noop
-       }, route);
-       */
-
-      this.rs.push(r);
-      console.debug("router push r.url:" + r.url + " succ.");
+      p.ready = p.ready || $.noop;
+      p.router = this;
+      this.ps[p.url] = p;
+      console.debug("router cache page.url:" + p.url + " succ.");
       return this;
     } catch (ex) {
-      alert("router.push exp: " + ex.message);
+      console.error("router.cachePage exp: " + ex.message);
     }
   }
   /**
@@ -1014,7 +1067,7 @@ var Router = /*#__PURE__*/function () {
 
     if (r.hide) r.hide(p); // 缓存当前 page
 
-    if (r.lastPage) this.ps[r.lastPage.id] = p;
+    if (r.lastPage) this.vs[r.lastPage.id] = p;
     p.remove();
     this.removeCss();
   }
@@ -1023,36 +1076,41 @@ var Router = /*#__PURE__*/function () {
    * 如果在动画后调用,会先看到旧页面残留,体验不好
    * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
    * 获取dom 元素时,最好限定在事件参数pg范围获取.
-   * @param {*} r 路由
-   * @param {*} p 页面，Dom 对象
+   * @param {*} p 页面实例
+   * @param {*} v 页面，$Dom 对象
    */
   ;
 
-  _proto.onShow = function onShow(r, p) {
+  _proto.onShow = function onShow(p, v) {
     var _this10 = this;
 
     try {
-      if (!r) return; // 重新绑定事件
+      if (!p) return; // 重新绑定事件
 
-      if (r.doReady && r.ready) {
-        // 如果不使用延时，加载无法获取dom节点坐标！
-        //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
-        $.nextTick(function () {
-          r.ready(p, r.param, _this10.backed);
-        });
+      if (p.doReady) {
+        // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
+        this.pageEvent('init', p, v);
+
+        if (p.ready) {
+          // 如果不使用延时，加载无法获取dom节点坐标！
+          //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
+          $.nextTick(function () {
+            p.ready(v, p.param, _this10.backed);
+          });
+        }
       } // 触发
 
 
-      if (r.back && this.backed) {
+      if (p.back && this.backed) {
         $.nextTick(function () {
-          if (r.scrollTop) p.clas('page-content').dom.scrollTop = r.scrollTop;
-          r.back(p, r.param);
+          if (p.scrollTop) v.clas('page-content').dom.scrollTop = p.scrollTop;
+          p.back(v, p.param);
         });
       }
 
-      if (r.show && !this.backed) {
+      if (p.show && !this.backed) {
         $.nextTick(function () {
-          r.show(p, r.param);
+          p.show(v, p.param);
         });
       }
     } catch (ex) {
@@ -1064,16 +1122,16 @@ var Router = /*#__PURE__*/function () {
   /**
    * 显示新页面
    * @param {*} lastr 上一个路由
-   * @param {*} r 当前路由
-   * @param {*} p 当前页面
+   * @param {*} p 当前路由
+   * @param {*} v 当前页面
    */
   ;
 
-  _proto.showPage = function showPage(r, p) {
-    if (p) {
-      p.removeClass(this.opt.nextClass);
-      p.removeClass(this.opt.prevClass);
-      p.addClass(this.opt.showClass);
+  _proto.showPage = function showPage(p, v) {
+    if (v) {
+      v.removeClass(this.opt.nextClass);
+      v.removeClass(this.opt.prevClass);
+      v.addClass(this.opt.showClass);
     } //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
     // 外层（init.js）中会绑定 pageInitInternal 事件，然后对页面进行初始化
     //$to.trigger(EVENTS.pageInit, [to.id, to]);
@@ -1084,19 +1142,19 @@ var Router = /*#__PURE__*/function () {
    * 把新页从右边切入展示，同时会把新的块的记录用 history.pushState 来保存起来
    * 如果已经是当前显示的块，那么不做任何处理；
    * 如果没对应的块，忽略。
-   * @param {Router} r 待切换的路由
+   * @param {Router} p 待切换的页面实例
    * @param {String} back 是否返回
    * @private
    */
   ;
 
-  _proto.switchPage = function switchPage(lastr, r, back) {
+  _proto.switchPage = function switchPage(lastp, p, back) {
     var _this11 = this;
 
-    if (!r) return;
+    if (!p) return;
     var from = this.getCurrentPage();
     if (from) from = $(from);
-    var to = $.id(r.id);
+    var to = $.id(p.id);
     if (to) to = $(to); // 如果已经是当前页，不做任何处理
 
     if (from && to && from.dom === to.dom) return;
@@ -1108,29 +1166,91 @@ var Router = /*#__PURE__*/function () {
         // 开机splash不需要动画
         if (this.noAni) {
           this.noAni = false;
-          this.hidePage(lastr, from);
-          this.onShow(r, to);
-          this.showPage(r, to);
+          this.hidePage(lastp, from);
+          this.onShow(p, to); // ready
+
+          this.showPage(p, to);
         } else {
           // 需要动画，先触发show事件
-          this.onShow(r, to); // 提前处理，切换效果好
+          this.onShow(p, to); // ready 提前处理，切换效果好
 
           this.aniPage(from, to, dir, function () {
             // 动画结束
-            _this11.hidePage(lastr, from);
+            _this11.hidePage(lastp, from);
 
-            _this11.showPage(r, to);
+            _this11.showPage(p, to);
           });
         }
       } else if (from) {
-        this.hidePage(lastr, from);
+        this.hidePage(lastp, from);
       } else if (to) {
-        this.onShow(r, to);
-        this.showPage(r, to);
+        this.onShow(p, to); // ready
+
+        this.showPage(p, to);
       }
     }
 
     setTitle(this.page.title); // this.pushNewState('#' + sectionId, sectionId);
+  }
+  /**
+   * 页面Page实例事件触发，f7 UI组件需要
+   * @param {Page} p 页面实例
+   * @param {Dom} v 视图
+   * @private
+   */
+  ;
+
+  _proto.pageEvent = function pageEvent(ev, p, v) {
+    try {
+      if (!p || !v) return;
+      var r = this; // router
+
+      if (!v.length) return;
+      var camelName = "page" + (ev[0].toUpperCase() + ev.slice(1, ev.length));
+      var colonName = "page:" + ev.toLowerCase();
+      var page = {
+        $el: v,
+        el: v.dom
+      }; // if (callback === 'beforeRemove' && v[0].f7Page) {
+      //   page = $.extend(v[0].f7Page, {from, to, position: from});
+      // } else {
+      //   page = r.getPageData(
+      //     $pageEl[0],
+      //     $navbarEl[0],
+      //     from,
+      //     to,
+      //     route,
+      //     pageFromEl
+      //   );
+      // }
+      // page.swipeBack = !!options.swipeBack;
+      // const {on = {}, once = {}} = options.route ? options.route.route : {};
+      // if (options.on) {
+      //   extend(on, options.on);
+      // }
+      // if (options.once) {
+      //   extend(once, options.once);
+      // }
+      // pageInit event
+
+      if (ev === 'init') {
+        // attachEvents();
+        if (v[0].f7PageInitialized) {
+          v.trigger('page:reinit', page);
+          r.emit('pageReinit', page);
+          return;
+        }
+
+        v[0].f7PageInitialized = true;
+      } // 触发当前页面事件
+
+
+      v.trigger(colonName, page); // 触发页面模块事件
+
+      r.app.emit(camelName, page);
+    } catch (ex) {
+      console.error("pageEvent exp:" + ex.message);
+    }
   };
 
   return Router;
@@ -1165,30 +1285,33 @@ function setHash(url) {
 }
 /**
  * 修改微信 title
+ * IOS：微信6.5.3版本 在17年3月，切换了WKWebview， 可以直接document.title修改。
+ * Andriod： 一直都可以document.title修改
  */
 
 
 function setTitle(val) {
   if (document.title === val) return;
-
+  document.title = val;
+  /*
   if (/MicroMessenger/i.test(navigator.userAgent)) {
-    setTimeout(function () {
+    setTimeout(() => {
       // 利用iframe的onload事件刷新页面
       document.title = val;
-      var fr = document.createElement('iframe'); // fr.style.visibility = 'hidden';
-
-      fr.style.display = 'none'; // 避免大量服务器无效访问
-      // fr.src = 'img/favicon.ico';
-
-      fr.onload = function () {
-        setTimeout(function () {
+       const fr = document.createElement('iframe');
+      // fr.style.visibility = 'hidden';
+      fr.style.display = 'none';
+      // 避免大量服务器无效访问，需提供该文件！
+      fr.src = 'favicon.ico';
+      fr.onload = () => {
+        setTimeout(() => {
           document.body.removeChild(fr);
         }, 0);
       };
-
       document.body.appendChild(fr);
     }, 0);
   } else document.title = val;
+  */
 }
 
 $.go = function (url, param, refresh) {
