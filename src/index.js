@@ -143,10 +143,10 @@ class Router {
 
     this.app = app;
     $.app = this.app;
-    if (app.load)
+    if (app.ready)
       // 重新绑定事件
       $.nextTick(() => {
-        app.load();
+        app.ready();
       });
 
     if (app.show)
@@ -160,6 +160,8 @@ class Router {
         // const param = $.urlParam();
         const param = $.urlParam();
         app.show(hash, param);
+        // 抑制页面空 href 刷新页面行为
+        $.view.qus('a[href=""]').attr('href', 'javascript:;');
       });
     // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
     // pushState 不支持 微信侧滑返回
@@ -202,13 +204,8 @@ class Router {
         this.backed = false; // 是否返回
         this.hash = this.hash || [];
         const hs = this.hash;
-        if (
-          !hs ||
-          hs.length === 0 ||
-          (hs.length > 0 && hs[hs.length - 1] !== newHash)
-        ) {
-          if (hs.length > 0)
-            console.log(`hash:${hs[hs.length - 1]} -> ${newHash}`);
+        if (!hs || hs.length === 0 || (hs.length > 0 && hs[hs.length - 1] !== newHash)) {
+          if (hs.length > 0) console.log(`hash:${hs[hs.length - 1]} -> ${newHash}`);
           else console.log(`hash:null -> ${newHash}`);
 
           hs.push(newHash);
@@ -216,8 +213,7 @@ class Router {
           this.backed = true;
           console.log(`back hash:${hs[hs.length - 2]} <- ${newHash}`);
           hs.pop();
-        } else if (hs.length > 0 && hs[hs.length - 1] === newHash)
-          console.log(`same hash: ${newHash}`);
+        } else if (hs.length > 0 && hs[hs.length - 1] === newHash) console.log(`same hash: ${newHash}`);
 
         // const state = history.state || {};
         // this.to(hash, state._index <= this._index);
@@ -259,8 +255,7 @@ class Router {
     if (getHash(location.href) === url) {
       // `#${url}`;
       this.nextHash = getHash(url);
-      if (this.hash[this.hash.length - 1] !== this.nextHash)
-        this.hash.push(this.nextHash);
+      if (this.hash[this.hash.length - 1] !== this.nextHash) this.hash.push(this.nextHash);
       this.routeTo(url, param, refresh);
     } else {
       // 切换页面hash，通过 hash变化事件来路由
@@ -295,8 +290,7 @@ class Router {
       // 当前路径
       else if (url.startsWith('./') && this.path) {
         R = `/${this.owner}/${this.appName}/${this.path}/${url.substr(2)}`;
-      } else if (!url.startsWith('/'))
-        R = `/${this.owner}/${this.appName}/${url}`;
+      } else if (!url.startsWith('/')) R = `/${this.owner}/${this.appName}/${url}`;
       // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
       // /ower/app => /ower/app/index
       // /ower/app/ => /ower/app/index
@@ -374,25 +368,25 @@ class Router {
 
         // 加载页面必须 owner、name 和 page
         if (!owner || !name || !page) res('');
-              // 本地调试状态，直接获取本地页面
+        // 本地调试状态，直接获取本地页面
         else if (this.opt.mode === 'local') {
-                let appCss = null;
+          let appCss = null;
 
-                // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
-                const pgHtml = new Promise((resHtml, rejHtml) => {
+          // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
+          const pgHtml = new Promise((resHtml, rejHtml) => {
             const pgurl = `${this.opt.local}/page/${page}.html?v=${Date.now()}`;
-                  // console.log('router load html:', {url: pgurl});
-                  $.get(pgurl).then(
-                    rs => {
-                      // 页面获取成功
+            // console.log('router load html:', {url: pgurl});
+            $.get(pgurl).then(
+              rs => {
+                // 页面获取成功
                 // debugger;
-                      // console.log('router load html:', {url: pgurl, rs});
-                      // 获得页面模块类，并创建页面对象实例
-                      const Cls = __webpack_require__(`./src/page/${page}.js`); // eslint-disable-line
-                      const p = new Cls.default({app: this.app}); // eslint-disable-line
+                // console.log('router load html:', {url: pgurl, rs});
+                // 获得页面模块类，并创建页面对象实例
+                const Cls = __webpack_require__(`./src/page/${page}.js`); // eslint-disable-line
+                const p = new Cls.default({app: this.app}); // eslint-disable-line
 
-                      p.html = rs;
-                      p.param = param;
+                p.html = rs;
+                p.param = param;
 
                 // 保存应用所有者和应用名称
                 p.owner = owner;
@@ -401,44 +395,40 @@ class Router {
                 p.path = path;
 
                 this.cachePage(p); // save page instance
-                      resHtml(p);
-                    },
-                    err => rejHtml(err)
-                  );
-                });
+                resHtml(p);
+              },
+              err => rejHtml(err)
+            );
+          });
 
-                const pgCss = new Promise((resCss, rejCss) => {
+          const pgCss = new Promise((resCss, rejCss) => {
             const pgurl = `${this.opt.local}/page/${page}.css?v=${Date.now()}`;
-                  // console.log(`router load css:${url}`);
-                  $.get(pgurl).then(
-                    rs => {
-                      // debugger;
-                      // console.log('router load css:', {url: pgurl, rs});
-                      resCss(rs);
-                    },
-                    err => rejCss(err)
-                  );
-                });
+            // console.log(`router load css:${url}`);
+            $.get(pgurl).then(
+              rs => {
+                // debugger;
+                // console.log('router load css:', {url: pgurl, rs});
+                resCss(rs);
+              },
+              err => rejCss(err)
+            );
+          });
 
-                  Promise.all([pgHtml, pgCss])
-                    .then(rs => {
-                      const p = rs[0];
+          Promise.all([pgHtml, pgCss])
+            .then(rs => {
+              const p = rs[0];
               p.css = rs[1]; // eslint-disable-line
-                      // 触发 load 事件
-                      if (p.load) p.load(param);
+              // 触发 load 事件
+              if (p.load) p.load(param);
 
-                      res(p);
-                    })
-                    .catch(err => rej(err));
-              } else {
-          //debugger;
+              res(p);
+            })
+            .catch(err => rej(err));
+        } else {
+          // debugger;
 
-          if (this.opt.cos.includes('localhost:'))
-            url = `${this.opt.cos}/page/${page}.js?v=${Date.now()}`;
-          else
-            url = `${
-              this.opt.cos
-            }/${owner}/${name}/page/${page}.js?v=${Date.now()}`;
+          if (this.opt.cos.includes('localhost:')) url = `${this.opt.cos}/page/${page}.js?v=${Date.now()}`;
+          else url = `${this.opt.cos}/${owner}/${name}/page/${page}.js?v=${Date.now()}`;
 
           // console.log('router load page:', {url});
 
@@ -446,16 +436,16 @@ class Router {
             r => {
               // debugger;
               console.log(r);
-                    if (r && r.js) {
-                      const k = Object.keys(r.js)[0];
-                      const code = r.js[k];
+              if (r && r.js) {
+                const k = Object.keys(r.js)[0];
+                const code = r.js[k];
                 $.M.add(r.js);
-                      // console.log(r.js);
+                // console.log(r.js);
                 const P = $.M(k); // 加载该模块
-                      const p = new P.default(); // eslint-disable-line
-                      p.html = r.html;
-                      p.css = r.css;
-                      p.param = param;
+                const p = new P.default(); // eslint-disable-line
+                p.html = r.html;
+                p.css = r.css;
+                p.param = param;
 
                 // 保存应用所有者和应用名称
                 p.owner = owner;
@@ -465,15 +455,15 @@ class Router {
 
                 this.cachePage(p);
 
-                      // 触发 load 事件
-                      if (p.load) p.load(param);
+                // 触发 load 事件
+                if (p.load) p.load(param);
 
-                      res(p);
-                    }
-                  },
-                  err => rej(err)
-                );
+                res(p);
               }
+            },
+            err => rej(err)
+          );
+        }
       });
     } catch (e) {
       console.error(`load exp:${e.message}`);
@@ -503,7 +493,7 @@ class Router {
           if (owner) {
             if (this.owner !== this.lastOwner) this.lastOwner = this.owner;
             this.owner = owner;
-        }
+          }
 
           if (name) {
             if (this.appName !== this.lastName) this.lastName = this.appName;
@@ -521,9 +511,9 @@ class Router {
             let appCls = null;
             if (this.opt.mode === 'local')
               // eslint-disable-next-line
-              appCls = __webpack_require__('./src/app.js');
+              appCls = __webpack_require__('./src/index.js');
             // eslint-disable-line
-            else appCls = __m__(`./${this.owner}/${this.name}/src/app.js`); // eslint-disable-line
+            else appCls = __m__(`./${this.owner}/${this.name}/src/index.js`); // eslint-disable-line
 
             // eslint-disable-next-line
             app = new appCls.default({
@@ -535,10 +525,10 @@ class Router {
             });
 
             this.as[`${owner}.${name}`] = app;
-            if (app.load)
+            if (app.ready)
               // 重新绑定事件
               $.nextTick(() => {
-                app.load();
+                app.ready();
               });
           }
 
@@ -552,17 +542,19 @@ class Router {
           if (app.show)
             $.nextTick(() => {
               app.show();
+              // 抑制页面空 href 刷新页面行为
+              $.view.qus('a[href=""]').attr('href', 'javascript:;');
             });
 
           return true;
-      }
+        }
 
         return false;
       })
       .catch(err => {
         console.log('switchApp err:', err);
         return false;
-    });
+      });
   }
 
   /**
@@ -588,10 +580,7 @@ class Router {
             // const code = await this.getCode(tk);
             this.getCode(tk).then(code => {
               if (code) {
-                $.get(
-                  `${self.opt.api}/${owner}/${name}/${API.getToken}`,
-                  `code=${code}`
-                )
+                $.get(`${self.opt.api}/${owner}/${name}/${API.getToken}`, `code=${code}`)
                   .then(r => {
                     if (r) {
                       console.log('getToken', {r});
@@ -632,10 +621,7 @@ class Router {
       try {
         if (!token) res(R);
         else {
-          $.get(
-            `${this.opt.api}/${owner}/${name}/${API.checkToken}`,
-            `token=${token}`
-          )
+          $.get(`${this.opt.api}/${owner}/${name}/${API.checkToken}`, `token=${token}`)
             .then(rs => {
               console.log('checkToken', {token, rs});
               // {res: true, expire: 秒数}
@@ -687,8 +673,7 @@ class Router {
   }
 
   removeCss() {
-    if (this.lastStyle && this.lastStyle.parentNode)
-      this.lastStyle.parentNode.removeChild(this.lastStyle);
+    if (this.lastStyle && this.lastStyle.parentNode) this.lastStyle.parentNode.removeChild(this.lastStyle);
   }
 
   /**
@@ -727,144 +712,132 @@ class Router {
       .then(rt => {
         if (rt) {
           // 记录当前page实例
-    this.lastPage = this.page;
-    // 记录当前 scrollTop
-    if (this.lastPage)
-            this.lastPage.scrollTop =
-              this.lastPage.el.clas('page-content').dom.scrollTop;
+          this.lastPage = this.page;
+          // 记录当前 scrollTop
+          if (this.lastPage) this.lastPage.scrollTop = this.lastPage.el.clas('page-content')?.dom.scrollTop ?? 0;
 
           this.page = p;
-    $.page = this.page;
-    $.lastPage = this.lastPage;
+          $.page = this.page;
+          $.lastPage = this.lastPage;
           // 切换app
 
-    // alert(`routeTo url:${r.url}`);
+          // alert(`routeTo url:${r.url}`);
 
-    // 返回还是前进
-    this.lasts = this.lasts || [];
+          // 返回还是前进
+          this.lasts = this.lasts || [];
 
-    const rs = this.lasts;
-    this.backed = false;
-    // 如果切换的是前一个page，则为回退！
+          const rs = this.lasts;
+          this.backed = false;
+          // 如果切换的是前一个page，则为回退！
           if (rs.length > 1 && rs[rs.length - 2].id === p.id) {
-      this.backed = true;
-            console.log(
-              `to back id:${rs[rs.length - 2].id} <- ${this.lastPage.id}`
-            );
-      rs.pop();
+            this.backed = true;
+            console.log(`to back id:${rs[rs.length - 2].id} <- ${this.lastPage.id}`);
+            rs.pop();
           } else if (rs.length > 0 && rs[rs.length - 1].id === p.id) {
             console.log(`to same id: ${p.id}`);
-    } else if (
-      rs.length === 0 ||
-            (rs.length > 0 && rs[rs.length - 1].id !== p.id)
-    ) {
-      if (rs.length > 0)
-              console.log(`to id:${rs[rs.length - 1].id} -> ${p.id}`);
+          } else if (rs.length === 0 || (rs.length > 0 && rs[rs.length - 1].id !== p.id)) {
+            if (rs.length > 0) console.log(`to id:${rs[rs.length - 1].id} -> ${p.id}`);
             else console.log(`to id:null -> ${p.id}`);
 
-      rs.push(this.page);
-    }
+            rs.push(this.page);
+          }
 
-    // 进入跳转的页面
-    const enter = pg => {
+          // 进入跳转的页面
+          const enter = pg => {
             p.doReady = false;
 
-      // 页面上是否存在，已经隐藏
+            // 页面上是否存在，已经隐藏
             let v = $.id(p.id);
-      // debugger;
-      // 页面上不存在，则从缓存获取，并加载到主页面
+            // debugger;
+            // 页面上不存在，则从缓存获取，并加载到主页面
             if (!v) {
               // 从缓存加载到页面，触发ready
               v = this.vs[p.id]; // dom实例
               // 缓存也不存在，表明是刚Load，第一次加载到页面，触发Ready事件
               if (!v && pg) {
                 v = pg;
-          // 缓存页面
+                // 缓存页面
                 this.vs[p.id] = v;
                 p.doReady = true;
-        }
+              }
 
               if (v) {
-          // back 插在前面
-          // forward添加在后面，并移到左侧
-          if (this.view) {
-            // this.style.href = r.style;
+                // back 插在前面
+                // forward添加在后面，并移到左侧
+                if (this.view) {
+                  // this.style.href = r.style;
                   this.addCss(p.css); // 准备 css
                   const $v = $(v);
-            if (this.backed && this.view.hasChild()) {
-                    if (this.opt.className)
-                      $v.addClass(`${this.opt.className}`);
-                    if (this.opt.prevClass)
-                      $v.addClass(`${this.opt.prevClass}`);
-                    this.view.dom.insertBefore(v, this.view.dom.children[0]);
-            } else {
-                    if (this.opt.className)
-                      $v.addClass(`${this.opt.className}`);
-                    if (this.opt.nextClass)
-                      $v.addClass(`${this.opt.nextClass}`);
+                  if (this.backed && this.view.hasChild()) {
+                    if (this.opt.className) $v.addClass(`${this.opt.className}`);
+                    if (this.opt.prevClass) $v.addClass(`${this.opt.prevClass}`);
+                    // pc master detail
+                    this.view.dom.insertBefore(v, this.view.lastChild().dom);
+                  } else {
+                    if (this.opt.className) $v.addClass(`${this.opt.className}`);
+                    if (this.opt.nextClass) $v.addClass(`${this.opt.nextClass}`);
                     this.view.dom.appendChild(v);
-            }
-          }
+                  }
+                }
 
                 if (p.doReady) $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
-        }
-      }
+              }
+            }
 
-      // 记录当前层
+            // 记录当前视图
             p.el = $(v); // view 层保存在el中
+            p.$el = p.el;
             p.view = p.el;
             p.dom = p.el.dom;
 
-      // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
-      // 应该判断 hash 是否已经改变，如已改变，则不切换
-      // alert(`hash:${this.hash} => ${this.nextHash}`);
-            if (
-              !this.nextHash ||
-              this.nextHash === this.hash[this.hash.length - 1]
-            ) {
+            // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
+            // 应该判断 hash 是否已经改变，如已改变，则不切换
+            // alert(`hash:${this.hash} => ${this.nextHash}`);
+            if (!this.nextHash || this.nextHash === this.hash[this.hash.length - 1]) {
               this.switchPage(this.lastPage, p, this.backed);
-      }
-    };
+            }
+          };
 
-    // 强制刷新，删除存在页面及缓存
-    if (refresh) {
+          // 强制刷新，删除存在页面及缓存
+          if (refresh) {
             let v = $.id(p.id);
             if (v) $.remove(v);
 
-      // 删除缓存
+            // 删除缓存
             v = this.vs[p.id];
             if (v) delete this.vs[p.id];
-    }
+          }
 
-    // 加载页面视图回调
-    const onload = (err, html = '') => {
-      if (err) throw err;
-      // console.log('onload html:', html);
+          // 加载页面视图回调
+          const onload = (err, html = '') => {
+            if (err) throw err;
+            // console.log('onload html:', html);
 
-      // 创建 页面层
+            // 创建 页面层
             const $v = $(html);
             p.view = $v; // dom 对象保存到页面实体的view中
             p.el = $v;
+            p.$el = p.el;
             p.dom = $v.dom;
             $v.dom.id = p.id;
 
             // 进入页面
-      enter(p.dom);
-    };
+            enter(p.dom);
+          };
 
           const nextPage = this.loaded(p);
-    const curPage = this.getCurrentPage();
+          const curPage = this.getCurrentPage();
 
-    // 页面不存在则加载页面
-    if (!nextPage) {
+          // 页面不存在则加载页面
+          if (!nextPage) {
             onload(null, p.html);
-      // if (r.load) // 加载视图
-      //   r.load.then((html) => {onload(null, html)});
-      // else if (r.view) // 兼容
-      //   r.view(onload);
-      // else
-      //   throw new Error(`route ${r.id} hasn't load function!`);
-    } else enter(); // 存在则直接进入
+            // if (r.load) // 加载视图
+            //   r.load.then((html) => {onload(null, html)});
+            // else if (r.view) // 兼容
+            //   r.view(onload);
+            // else
+            //   throw new Error(`route ${r.id} hasn't load function!`);
+          } else enter(); // 存在则直接进入
         }
       })
       .catch(err => console.error('to err:', err));
@@ -904,8 +877,7 @@ class Router {
       // eslint-disable-next-line prefer-destructuring
       if (ms) R.path = ms[3];
 
-      if (url !== R.url)
-        console.log(`router parseUrl url:${url} -> ${R.url} path:${R.path}`);
+      if (url !== R.url) console.log(`router parseUrl url:${url} -> ${R.url} path:${R.path}`);
     } catch (e) {
       console.error(`router parseUrl exp:${e.message}`);
     }
@@ -968,7 +940,7 @@ class Router {
     }
 
     return R;
-      }
+  }
 
   /**
    * cache page instance
@@ -1085,12 +1057,12 @@ class Router {
         this.pageEvent('init', p, v);
 
         if (p.ready) {
-        // 如果不使用延时，加载无法获取dom节点坐标！
-        //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
-        $.nextTick(() => {
+          // 如果不使用延时，加载无法获取dom节点坐标！
+          //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
+          $.nextTick(() => {
             p.ready(v, p.param, this.backed);
-        });
-      }
+          });
+        }
       }
 
       // 触发
@@ -1114,19 +1086,24 @@ class Router {
   /**
    * 显示新页面
    * @param {*} lastr 上一个路由
-   * @param {*} p 当前路由
-   * @param {*} v 当前页面
+   * @param {*} p 当前页面实例
+   * @param {*} v 当前页面Dom
    */
   showPage(p, v) {
     if (v) {
       v.removeClass(this.opt.nextClass);
       v.removeClass(this.opt.prevClass);
-      v.addClass(this.opt.showClass);
+      // master-detail 主从页面，主页面一直显示
+      if (v.hasClass('page-master') || v.hasClass('page-master-detail')) this.view.addClass('view-master-detail');
+      else if (this.view.hasClass('view-master-detail')) this.view.removeClass('view-master-detail');
+
+      // master页面一直显示，普通页面切换显示
+      if (!v.hasClass('page-master')) v.addClass(this.opt.showClass);
     }
 
-    //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
+    // $to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
     // 外层（init.js）中会绑定 pageInitInternal 事件，然后对页面进行初始化
-    //$to.trigger(EVENTS.pageInit, [to.id, to]);
+    // $to.trigger(EVENTS.pageInit, [to.id, to]);
   }
 
   /**
@@ -1142,7 +1119,11 @@ class Router {
     if (!p) return;
 
     let from = this.getCurrentPage();
-    if (from) from = $(from);
+    if (from) {
+      from = $(from);
+      // master page not hide!
+      if (from.hasClass('page-master')) from = null;
+    }
 
     let to = $.id(p.id);
     if (to) to = $(to);
@@ -1188,53 +1169,53 @@ class Router {
    */
   pageEvent(ev, p, v) {
     try {
-    if (!p || !v) return;
+      if (!p || !v) return;
 
-    const r = this; // router
-    if (!v.length) return;
+      const r = this; // router
+      if (!v.length) return;
 
       const camelName = `page${ev[0].toUpperCase() + ev.slice(1, ev.length)}`;
-    const colonName = `page:${ev.toLowerCase()}`;
+      const colonName = `page:${ev.toLowerCase()}`;
 
-    const page = {$el: v, el: v.dom};
-    // if (callback === 'beforeRemove' && v[0].f7Page) {
-    //   page = $.extend(v[0].f7Page, {from, to, position: from});
-    // } else {
-    //   page = r.getPageData(
-    //     $pageEl[0],
-    //     $navbarEl[0],
-    //     from,
-    //     to,
-    //     route,
-    //     pageFromEl
-    //   );
-    // }
-    // page.swipeBack = !!options.swipeBack;
+      const page = {$el: v, el: v.dom};
+      // if (callback === 'beforeRemove' && v[0].f7Page) {
+      //   page = $.extend(v[0].f7Page, {from, to, position: from});
+      // } else {
+      //   page = r.getPageData(
+      //     $pageEl[0],
+      //     $navbarEl[0],
+      //     from,
+      //     to,
+      //     route,
+      //     pageFromEl
+      //   );
+      // }
+      // page.swipeBack = !!options.swipeBack;
 
-    // const {on = {}, once = {}} = options.route ? options.route.route : {};
-    // if (options.on) {
-    //   extend(on, options.on);
-    // }
-    // if (options.once) {
-    //   extend(once, options.once);
-    // }
+      // const {on = {}, once = {}} = options.route ? options.route.route : {};
+      // if (options.on) {
+      //   extend(on, options.on);
+      // }
+      // if (options.once) {
+      //   extend(once, options.once);
+      // }
 
-    // pageInit event
+      // pageInit event
       if (ev === 'init') {
-      // attachEvents();
+        // attachEvents();
 
-      if (v[0].f7PageInitialized) {
-        v.trigger('page:reinit', page);
-        r.emit('pageReinit', page);
-        return;
+        if (v[0].f7PageInitialized) {
+          v.trigger('page:reinit', page);
+          r.emit('pageReinit', page);
+          return;
+        }
+        v[0].f7PageInitialized = true;
       }
-      v[0].f7PageInitialized = true;
-    }
 
-    // 触发当前页面事件
-    v.trigger(colonName, page);
-    // 触发页面模块事件
-    r.app.emit(camelName, page);
+      // 触发当前页面事件
+      v.trigger(colonName, page);
+      // 触发页面模块事件
+      r.app.emit(camelName, page);
     } catch (ex) {
       console.error(`pageEvent exp:${ex.message}`);
     }
