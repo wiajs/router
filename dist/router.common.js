@@ -29,8 +29,6 @@ function _extends() {
  * 开放、互联 前端路由
  * First Version Released on: September 13,2016
  */
-// 动画方式切换
-// import $ from '@wiajs/dom';
 
 /* global
  */
@@ -52,7 +50,9 @@ var Router = /*#__PURE__*/function () {
   // container element
   // 缓存所有app实例
   // 缓存所有page实例
-  // 缓存所有Page中的dom视图
+  // 页面id
+  // 缓存所有Page中的dom视图，不是$dom
+  // dom page 映射，通过 dom对象查找page实例！
   // 当前路由所处的网址，实际上是hash部分！
   // 带参数的完整hash数组，回退pop，前进push
   // start route config
@@ -88,7 +88,9 @@ var Router = /*#__PURE__*/function () {
     this.view = null;
     this.as = {};
     this.ps = {};
+    this.ids = [];
     this.vs = {};
+    this.vps = new Map();
     this.url = '';
     this.hash = [];
     this.splash = false;
@@ -161,9 +163,9 @@ var Router = /*#__PURE__*/function () {
     });
     this.app = app;
     $.app = this.app;
-    if (app.load) // 重新绑定事件
+    if (app.ready) // 重新绑定事件
       $.nextTick(function () {
-        app.load();
+        app.ready();
       });
     if (app.show) // 重新绑定事件
       $.nextTick(function () {
@@ -173,7 +175,9 @@ var Router = /*#__PURE__*/function () {
         hash = hash.indexOf('?') > -1 ? hash.replace(/\?\S*/, '') : hash; // const param = $.urlParam();
 
         var param = $.urlParam();
-        app.show(hash, param);
+        app.show(hash, param); // 抑制页面空 href 刷新页面行为
+
+        $.view.qus('a[href=""]').attr('href', 'javascript:;');
       }); // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
     // pushState 不支持 微信侧滑返回
     // 不带 hash 到 hash,返回时, 不能触发该事件,因此一开始就要设置 hash,否则无法回到 首页!
@@ -347,8 +351,8 @@ var Router = /*#__PURE__*/function () {
    */
   ;
 
-  _proto.loaded = function loaded(r) {
-    return $.id(r.id) || this.vs[r.id];
+  _proto.loaded = function loaded(p) {
+    return $.id(p.id) || this.vs[p.id];
   }
   /**
    * 动态下载页面js，里面包括js、html和css
@@ -451,8 +455,7 @@ var Router = /*#__PURE__*/function () {
 
             $.get(url).then(function (r) {
               // debugger;
-              console.log(r);
-
+              // console.log(r);
               if (r && r.js) {
                 var k = Object.keys(r.js)[0];
                 var code = r.js[k];
@@ -530,8 +533,8 @@ var Router = /*#__PURE__*/function () {
         if (!app) {
           var appCls = null;
           if (_this3.opt.mode === 'local') // eslint-disable-next-line
-            appCls = __webpack_require__('./src/app.js'); // eslint-disable-line
-          else appCls = __m__("./" + _this3.owner + "/" + _this3.name + "/src/app.js"); // eslint-disable-line
+            appCls = __webpack_require__('./src/index.js'); // eslint-disable-line
+          else appCls = __m__("./" + _this3.owner + "/" + _this3.name + "/src/index.js"); // eslint-disable-line
           // eslint-disable-next-line
 
           app = new appCls.default({
@@ -542,9 +545,14 @@ var Router = /*#__PURE__*/function () {
             init: false
           });
           _this3.as[owner + "." + name] = app;
-          if (app.load) // 重新绑定事件
+          _this3.lastPage = null; // 切换 app
+
+          _this3.page = null;
+          $.lastPage = null;
+          $.page = null;
+          if (app.ready) // 重新绑定事件
             $.nextTick(function () {
-              app.load();
+              app.ready();
             });
         }
 
@@ -554,7 +562,9 @@ var Router = /*#__PURE__*/function () {
         });
         _this3.app = app;
         if (app.show) $.nextTick(function () {
-          app.show();
+          app.show(); // 抑制页面空 href 刷新页面行为
+
+          $.view.qus('a[href=""]').attr('href', 'javascript:;');
         });
         return true;
       }
@@ -595,10 +605,7 @@ var Router = /*#__PURE__*/function () {
               if (code) {
                 $.get(self.opt.api + "/" + owner + "/" + name + "/" + API.getToken, "code=" + code).then(function (r) {
                   if (r) {
-                    console.log('getToken', {
-                      r: r
-                    });
-
+                    // console.log('getToken', {r});
                     if (r.code === 200) {
                       tk = r.data.token;
                       $.app.token = tk;
@@ -642,11 +649,8 @@ var Router = /*#__PURE__*/function () {
       try {
         if (!token) res(R);else {
           $.get(_this5.opt.api + "/" + owner + "/" + name + "/" + API.checkToken, "token=" + token).then(function (rs) {
-            console.log('checkToken', {
-              token: token,
-              rs: rs
-            }); // {res: true, expire: 秒数}
-
+            // console.log('checkToken', {token, rs});
+            // {res: true, expire: 秒数}
             if (rs.code === 200) {
               var exp = rs.data.expire; // 过期时刻，1970-01-01 之后的秒数
 
@@ -676,10 +680,7 @@ var Router = /*#__PURE__*/function () {
 
       try {
         $.get(_this6.opt.api + "/" + API.getCode, "token=" + token).then(function (rs) {
-          console.log('getCode', {
-            token: token,
-            rs: rs
-          });
+          // console.log('getCode', {token, rs});
           if (rs.code === 200) R = rs.data;else console.error('getCode fail.', {
             token: token,
             rs: rs
@@ -748,33 +749,34 @@ var Router = /*#__PURE__*/function () {
 
     this.switchApp(p.owner, p.appName, p.path).then(function (rt) {
       if (rt) {
+        var _this8$lastPage$view$, _this8$lastPage$view$2, _this8$lastPage$view$3;
+
         // 记录当前page实例
         _this8.lastPage = _this8.page; // 记录当前 scrollTop
 
-        if (_this8.lastPage) _this8.lastPage.scrollTop = _this8.lastPage.el.clas('page-content').dom.scrollTop;
+        if (_this8.lastPage && _this8.lastPage.scrollTop) _this8.lastPage.scrollTop = (_this8$lastPage$view$ = (_this8$lastPage$view$2 = _this8.lastPage.view.clas('page-content')) === null || _this8$lastPage$view$2 === void 0 ? void 0 : (_this8$lastPage$view$3 = _this8$lastPage$view$2.dom) === null || _this8$lastPage$view$3 === void 0 ? void 0 : _this8$lastPage$view$3.scrollTop) !== null && _this8$lastPage$view$ !== void 0 ? _this8$lastPage$view$ : 0; // 切换app
+
         _this8.page = p;
         $.page = _this8.page;
-        $.lastPage = _this8.lastPage; // 切换app
-        // alert(`routeTo url:${r.url}`);
+        $.lastPage = _this8.lastPage; // alert(`routeTo url:${r.url}`);
         // 返回还是前进
 
-        _this8.lasts = _this8.lasts || [];
-        var rs = _this8.lasts;
+        var ids = _this8.ids;
         _this8.backed = false; // 如果切换的是前一个page，则为回退！
 
-        if (rs.length > 1 && rs[rs.length - 2].id === p.id) {
+        if (ids.length > 1 && ids[ids.length - 2] === p.id) {
           _this8.backed = true;
-          console.log("to back id:" + rs[rs.length - 2].id + " <- " + _this8.lastPage.id);
-          rs.pop();
-        } else if (rs.length > 0 && rs[rs.length - 1].id === p.id) {
+          console.log("to back id:" + p.id + " <- " + ids[ids.length - 1]);
+          ids.pop();
+        } else if (ids.length > 0 && ids[ids.length - 1] === p.id) {
           console.log("to same id: " + p.id);
-        } else if (rs.length === 0 || rs.length > 0 && rs[rs.length - 1].id !== p.id) {
-          if (rs.length > 0) console.log("to id:" + rs[rs.length - 1].id + " -> " + p.id);else console.log("to id:null -> " + p.id);
-          rs.push(_this8.page);
-        } // 进入跳转的页面
+        } else if (ids.length === 0 || ids.length > 0 && ids[ids.length - 1] !== p.id) {
+          if (ids.length > 0) console.log("to id:" + ids[ids.length - 1] + " -> " + p.id);else console.log("to id:null -> " + p.id);
+          ids.push(p.id);
+        } // 进入跳转的页面, d 为 dom 对象
 
 
-        var enter = function enter(pg) {
+        var enter = function enter(d) {
           p.doReady = false; // 页面上是否存在，已经隐藏
 
           var v = $.id(p.id); // debugger;
@@ -785,8 +787,8 @@ var Router = /*#__PURE__*/function () {
             v = _this8.vs[p.id]; // dom实例
             // 缓存也不存在，表明是刚Load，第一次加载到页面，触发Ready事件
 
-            if (!v && pg) {
-              v = pg; // 缓存页面
+            if (!v && d) {
+              v = d; // 缓存页面dom实例
 
               _this8.vs[p.id] = v;
               p.doReady = true;
@@ -801,15 +803,16 @@ var Router = /*#__PURE__*/function () {
 
 
                 var $v = $(v);
+                var pm = $v.hasClass('page-master');
 
-                if (_this8.backed && _this8.view.hasChild()) {
+                if ((_this8.backed || pm) && _this8.view.hasChild()) {
                   if (_this8.opt.className) $v.addClass("" + _this8.opt.className);
-                  if (_this8.opt.prevClass) $v.addClass("" + _this8.opt.prevClass);
+                  if (_this8.opt.prevClass && !pm) $v.addClass("" + _this8.opt.prevClass); // master 和 前页面 插到前面
 
-                  _this8.view.dom.insertBefore(v, _this8.view.dom.children[0]);
+                  _this8.view.dom.insertBefore(v, _this8.view.lastChild().dom);
                 } else {
                   if (_this8.opt.className) $v.addClass("" + _this8.opt.className);
-                  if (_this8.opt.nextClass) $v.addClass("" + _this8.opt.nextClass);
+                  if (_this8.opt.nextClass && !pm) $v.addClass("" + _this8.opt.nextClass);
 
                   _this8.view.dom.appendChild(v);
                 }
@@ -817,18 +820,19 @@ var Router = /*#__PURE__*/function () {
 
               if (p.doReady) $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
             }
-          } // 记录当前层
+          } // 记录即将显示视图
 
 
-          p.el = $(v); // view 层保存在el中
+          if (p.el !== v) p.el = v; // view 层保存在el中
 
-          p.view = p.el;
-          p.dom = p.el.dom; // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
+          if (p.dom !== v) p.dom = v;
+          if (p.$el.dom !== v) p.$el = $(v);
+          if (p.view.dom !== v) p.view = p.$el; // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
           // 应该判断 hash 是否已经改变，如已改变，则不切换
           // alert(`hash:${this.hash} => ${this.nextHash}`);
 
           if (!_this8.nextHash || _this8.nextHash === _this8.hash[_this8.hash.length - 1]) {
-            _this8.switchPage(_this8.lastPage, p, _this8.backed);
+            _this8.switchPage(p, _this8.backed);
           }
         }; // 强制刷新，删除存在页面及缓存
 
@@ -851,11 +855,15 @@ var Router = /*#__PURE__*/function () {
           // 创建 页面层
 
           var $v = $(html);
+          $v.dom.id = p.id;
           p.view = $v; // dom 对象保存到页面实体的view中
 
-          p.el = $v;
-          p.dom = $v.dom;
-          $v.dom.id = p.id; // 进入页面
+          p.$el = $v;
+          p.el = $v.dom;
+          p.dom = $v.dom; // dom 与页面实例映射
+
+          _this8.vps.set(p.dom, p); // 进入页面
+
 
           enter(p.dom);
         };
@@ -926,7 +934,7 @@ var Router = /*#__PURE__*/function () {
     return R;
   }
   /**
-   * get route from routes filter by url
+   * 从缓存ps中查找页面实例
    * /ower/name/pag，去掉参数，参数放入 r.param
    * @param {String} url /ower/name/page
    * @param {Object} param
@@ -938,22 +946,22 @@ var Router = /*#__PURE__*/function () {
     var R = null;
     var rs = this.parseUrl(url); // for (let i = 0, len = this.rs.length; i < len; i++) {
 
-    var r = this.ps[rs.url]; // find(rt => rt.url === rs.url);
+    var p = this.ps[rs.url]; // find(rt => rt.url === rs.url);
 
-    if (!r) {
+    if (!p) {
       console.log('findPage not find!', {
         url: url
       });
     } else {
-      if (rs.param) r.param = _extends({}, rs.param);else r.param = {};
-      if (param) $.assign(r.param, param); // 记录当前 path
+      if (rs.param) p.param = _extends({}, rs.param);else p.param = {};
+      if (param) $.assign(p.param, param); // 记录当前 path
       // r.path = rs.path;
       // r.url = url;
 
-      r.lastSearch = r.search;
-      r.search = rs.search;
-      r.refresh = refresh;
-      R = r;
+      p.lastSearch = p.search;
+      p.search = rs.search;
+      p.refresh = refresh;
+      R = p;
     }
 
     return R;
@@ -1002,8 +1010,8 @@ var Router = /*#__PURE__*/function () {
 
       p.ready = p.ready || $.noop;
       p.router = this;
-      this.ps[p.url] = p;
-      console.debug("router cache page.url:" + p.url + " succ.");
+      this.ps[p.url] = p; // console.log(`router cache page.url:${p.url} succ.`);
+
       return this;
     } catch (ex) {
       console.error("router.cachePage exp: " + ex.message);
@@ -1060,20 +1068,26 @@ var Router = /*#__PURE__*/function () {
 
   /**
    * 显示新页面时，卸载当前页面，避免页面上相同id冲突
-   * @param {*} r 卸载路由
-   * @param {*} p 卸载页面
+   * @param {*} p 卸载页面实例
+   * @param {*} v 卸载页面视图 $Dom
    */
-  _proto.hidePage = function hidePage(r, p) {
-    if (!p || !r) return;
-    p.removeClass(this.opt.showClass);
-    p.removeClass(this.opt.prevClass);
-    p.removeClass(this.opt.nextClass); // 触发隐藏事件
+  _proto.hidePage = function hidePage(p, v) {
+    if (!v || !p) return;
 
-    if (r.hide) r.hide(p); // 缓存当前 page
+    try {
+      v.removeClass(this.opt.showClass);
+      v.removeClass(this.opt.prevClass);
+      v.removeClass(this.opt.nextClass); // 触发隐藏事件
 
-    if (r.lastPage) this.vs[r.lastPage.id] = p;
-    p.remove();
-    this.removeCss();
+      if (p.hide) p.hide(v); // 缓存当前 page
+      // this.vs[p.id] = v.dom;
+      // removeChild
+
+      v.remove();
+      this.removeCss();
+    } catch (ex) {
+      console.error('hidePage exp:', ex.message);
+    }
   }
   /**
    * 启动动画前调用show/ready事件,在页面显示前,准备好页面
@@ -1107,7 +1121,9 @@ var Router = /*#__PURE__*/function () {
 
       if (p.back && this.backed) {
         $.nextTick(function () {
-          if (p.scrollTop) v.clas('page-content').dom.scrollTop = p.scrollTop;
+          var _v$clas, _v$clas$dom, _p$scrollTop;
+
+          if ((_v$clas = v.clas('page-content')) !== null && _v$clas !== void 0 && (_v$clas$dom = _v$clas.dom) !== null && _v$clas$dom !== void 0 && _v$clas$dom.scrollTop) v.clas('page-content').dom.scrollTop = (_p$scrollTop = p.scrollTop) !== null && _p$scrollTop !== void 0 ? _p$scrollTop : 0;
           p.back(v, p.param);
         });
       }
@@ -1126,19 +1142,22 @@ var Router = /*#__PURE__*/function () {
   /**
    * 显示新页面
    * @param {*} lastr 上一个路由
-   * @param {*} p 当前路由
-   * @param {*} v 当前页面
+   * @param {*} p 当前页面实例
+   * @param {*} v 当前页面Dom
    */
   ;
 
   _proto.showPage = function showPage(p, v) {
     if (v) {
       v.removeClass(this.opt.nextClass);
-      v.removeClass(this.opt.prevClass);
-      v.addClass(this.opt.showClass);
-    } //$to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
+      v.removeClass(this.opt.prevClass); // master-detail 主从页面，主页面一直显示
+
+      if (v.hasClass('page-master') || v.hasClass('page-master-detail')) this.view.addClass('view-master-detail');else if (this.view.hasClass('view-master-detail')) this.view.removeClass('view-master-detail'); // master页面一直显示，普通页面切换显示
+
+      if (!v.hasClass('page-master')) v.addClass(this.opt.showClass);
+    } // $to.trigger(EVENTS.pageAnimationEnd, [to.id, to]);
     // 外层（init.js）中会绑定 pageInitInternal 事件，然后对页面进行初始化
-    //$to.trigger(EVENTS.pageInit, [to.id, to]);
+    // $to.trigger(EVENTS.pageInit, [to.id, to]);
 
   }
   /**
@@ -1152,14 +1171,29 @@ var Router = /*#__PURE__*/function () {
    */
   ;
 
-  _proto.switchPage = function switchPage(lastp, p, back) {
+  _proto.switchPage = function switchPage(p, back) {
     var _this11 = this;
 
     if (!p) return;
-    var from = this.getCurrentPage();
-    if (from) from = $(from);
+    var fp = null;
+    var from = this.getCurrentPage(); // 当前显示页面
+
+    if (from) {
+      from = $(from); // $(from); lastp.view;
+      // master page not hide!
+
+      if (from.hasClass('page-master')) from = null;else fp = this.vps.get(from.dom);
+    }
+
     var to = $.id(p.id);
-    if (to) to = $(to); // 如果已经是当前页，不做任何处理
+
+    if (to) {
+      to = $(to); // p.view; // $(to); ready/show 在实例view上修改
+      // master page not hide!
+
+      if (to.hasClass('page-master')) from = null;
+    } // 如果已经是当前页，不做任何处理
+
 
     if (from && to && from.dom === to.dom) return;
     var dir = back ? 'backward' : 'forward';
@@ -1170,7 +1204,7 @@ var Router = /*#__PURE__*/function () {
         // 开机splash不需要动画
         if (this.noAni) {
           this.noAni = false;
-          this.hidePage(lastp, from);
+          this.hidePage(fp, from);
           this.onShow(p, to); // ready
 
           this.showPage(p, to);
@@ -1180,13 +1214,13 @@ var Router = /*#__PURE__*/function () {
 
           this.aniPage(from, to, dir, function () {
             // 动画结束
-            _this11.hidePage(lastp, from);
+            _this11.hidePage(fp, from);
 
             _this11.showPage(p, to);
           });
         }
       } else if (from) {
-        this.hidePage(lastp, from);
+        this.hidePage(fp, from);
       } else if (to) {
         this.onShow(p, to); // ready
 

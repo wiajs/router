@@ -1,5 +1,14 @@
 # Change Log
 
+## 2020-08-06
+
+- 修正 detail 先于 master 加载 bug
+  $.go 两个页面时，异步下载、加载，detail 可能比 master 先下载。
+  导致 master 加载异常。
+- p.dom、p.el Dom 对象，p.view、p.$el $Dom 对象
+- 修正 页面切换时，隐藏页面的 Page 实例错误，master 后加载时 lastPage 指向 master 页面。
+- 屏蔽日志。
+
 ## 2021-08-01
 
 - app.load 改为 app.ready
