@@ -95,8 +95,6 @@ class Router {
     // this.app = this.opt.app;
     // this.app.router = this;
     this.view = $(`#${this.opt.view}`);
-    this.style = null; // 新增样式 $.id(this.opt.style);
-    this.lastStyle = null; // 即将清除的上一个样式
     this.param = {};
     this.page = null; // 当前 page 实例
     this.lastPage = null; // 上一个 page 实例
@@ -670,18 +668,27 @@ class Router {
     });
   }
 
-  addCss(css) {
-    const el = document.createElement('style');
-    // el.id = 'wia-style-next';
-    if (this.style) this.lastStyle = this.style;
-    this.style = el;
-    $('head').append(el);
-    this.style.innerHTML = css;
+  /**
+   * 向页面添加样式
+   */
+  addCss(p) {
+    const id = `css-${p.id}`;
+    let d = $.id(id);
+    if (!d) {
+      d = document.createElement('style');
+      d.id = id;
+      d.innerHTML = p.css;
+      $('head').append(d);
+    }
   }
 
-  removeCss() {
-    if (this.lastStyle && this.lastStyle.parentNode)
-      this.lastStyle.parentNode.removeChild(this.lastStyle);
+  /**
+   * 从页面删除样式
+   */
+  removeCss(p) {
+    const id = `css-${p.id}`;
+    const d = $.id(id);
+    if (d) $(d).remove();
   }
 
   /**
@@ -773,7 +780,7 @@ class Router {
                 // forward添加在后面，并移到左侧
                 if (this.view) {
                   // this.style.href = r.style;
-                  this.addCss(p.css); // 准备 css
+                  this.addCss(p); // 准备 css
                   const $v = $(v);
                   const pm = $v.hasClass('page-master');
                   if ((this.backed || pm) && this.view.hasChild()) {
@@ -1034,19 +1041,19 @@ class Router {
   hidePage(p, v) {
     if (!v || !p) return;
     try {
-    v.removeClass(this.opt.showClass);
-    v.removeClass(this.opt.prevClass);
-    v.removeClass(this.opt.nextClass);
+      v.removeClass(this.opt.showClass);
+      v.removeClass(this.opt.prevClass);
+      v.removeClass(this.opt.nextClass);
 
-    // 触发隐藏事件
-    if (p.hide) p.hide(v);
+      // 触发隐藏事件
+      if (p.hide) p.hide(v);
 
-    // 缓存当前 page
-    // this.vs[p.id] = v.dom;
+      // 缓存当前 page
+      // this.vs[p.id] = v.dom;
 
-    // removeChild
-    v.remove();
-    this.removeCss();
+      // removeChild
+      v.remove();
+      this.removeCss(p);
     } catch (ex) {
       console.error('hidePage exp:', ex.message);
     }
@@ -1099,7 +1106,6 @@ class Router {
 
   /**
    * 显示新页面
-   * @param {*} lastr 上一个路由
    * @param {*} p 当前页面实例
    * @param {*} v 当前页面Dom
    */

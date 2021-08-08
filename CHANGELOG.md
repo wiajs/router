@@ -1,5 +1,10 @@
 # Change Log
 
+## 2020-08-08
+
+- 修正 addCss、removeCss bug
+	使用唯一id，避免异步加载中，样式与页面错配，或样式重复！
+
 ## 2020-08-06
 
 - 修正 detail 先于 master 加载 bug
