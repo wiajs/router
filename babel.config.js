@@ -25,7 +25,17 @@ const plugins = [
   ['@babel/plugin-proposal-private-methods', {loose}],
   ['@babel/plugin-proposal-function-bind'],
   ['@babel/plugin-proposal-nullish-coalescing-operator'],
-  ['@babel/plugin-proposal-optional-chaining']
+  ['@babel/plugin-proposal-optional-chaining'],
+  // [
+  //   '@babel/plugin-transform-runtime',
+  //   {
+  //     absoluteRuntime: false,
+  //     corejs: false,
+  //     helpers: true,
+  //     regenerator: true,
+  //     useESModules: false,
+  //   },
+  // ],
 ];
 
 module.exports = {presets, plugins};
