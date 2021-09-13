@@ -54,7 +54,7 @@ class Router {
     nextClass: 'page-next', // page 切换新页面
     prevClass: 'page-previous', // page 切换旧页面
     showClass: 'page-current', // 显示内容层时添加的样式
-    cos: 'https://cos.nuoya.net', //  'http://localhost:3003'
+    cos: 'https://cos.wia.pub', //  'http://localhost:3003'
     api: 'https://wia.pub',
     ver: '1.0.0',
     mode: 'prod', // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
@@ -730,7 +730,7 @@ class Router {
           this.lastPage = this.page;
           // 记录当前 scrollTop
           if (this.lastPage && this.lastPage.scrollTop)
-            this.lastPage.scrollTop = this.lastPage.view.clas('page-content')?.dom?.scrollTop ?? 0;
+            this.lastPage.scrollTop = this.lastPage.view.class('page-content')?.dom?.scrollTop ?? 0;
 
           // 切换app
           this.page = p;
@@ -794,16 +794,14 @@ class Router {
                     this.view.dom.appendChild(v);
                   }
                 }
-
-                if (p.doReady) $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
               }
             }
 
             // 记录即将显示视图
             if (p.el !== v) p.el = v; // view 层保存在el中
             if (p.dom !== v) p.dom = v;
-            if (p.$el.dom !== v) p.$el = $(v);
-            if (p.view.dom !== v) p.view = p.$el;
+            if (p.$el?.dom !== v) p.$el = $(v);
+            if (p.view?.dom !== v) p.view = p.$el;
 
             // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
             // 应该判断 hash 是否已经改变，如已改变，则不切换
@@ -843,7 +841,6 @@ class Router {
           };
 
           const nextPage = this.loaded(p);
-          const curPage = this.getCurrentPage();
 
           // 页面不存在则加载页面
           if (!nextPage) {
@@ -1080,7 +1077,13 @@ class Router {
           // 如果不使用延时，加载无法获取dom节点坐标！
           //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
           $.nextTick(() => {
+            try {
             p.ready(v, p.param, this.backed);
+            } catch (e) {
+              console.log('page ready exp:', e.message);
+            }
+
+            $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
           });
         }
       }
@@ -1088,8 +1091,8 @@ class Router {
       // 触发
       if (p.back && this.backed) {
         $.nextTick(() => {
-          if (v.clas('page-content')?.dom?.scrollTop)
-            v.clas('page-content').dom.scrollTop = p.scrollTop ?? 0;
+          if (v.class('page-content')?.dom?.scrollTop)
+            v.class('page-content').dom.scrollTop = p.scrollTop ?? 0;
           p.back(v, p.param);
         });
       }

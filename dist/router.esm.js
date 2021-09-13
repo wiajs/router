@@ -103,10 +103,6 @@ var Router = /*#__PURE__*/function () {
     // this.app.router = this;
 
     this.view = $("#" + this.opt.view);
-    this.style = null; // 新增样式 $.id(this.opt.style);
-
-    this.lastStyle = null; // 即将清除的上一个样式
-
     this.param = {};
     this.page = null; // 当前 page 实例
 
@@ -688,19 +684,32 @@ var Router = /*#__PURE__*/function () {
         res(R);
       }
     });
-  };
+  }
+  /**
+   * 向页面添加样式
+   */
+  ;
 
-  _proto.addCss = function addCss(css) {
-    var el = document.createElement('style'); // el.id = 'wia-style-next';
+  _proto.addCss = function addCss(p) {
+    var id = "css-" + p.id;
+    var d = $.id(id);
 
-    if (this.style) this.lastStyle = this.style;
-    this.style = el;
-    $('head').append(el);
-    this.style.innerHTML = css;
-  };
+    if (!d) {
+      d = document.createElement('style');
+      d.id = id;
+      d.innerHTML = p.css;
+      $('head').append(d);
+    }
+  }
+  /**
+   * 从页面删除样式
+   */
+  ;
 
-  _proto.removeCss = function removeCss() {
-    if (this.lastStyle && this.lastStyle.parentNode) this.lastStyle.parentNode.removeChild(this.lastStyle);
+  _proto.removeCss = function removeCss(p) {
+    var id = "css-" + p.id;
+    var d = $.id(id);
+    if (d) $(d).remove();
   }
   /**
    * route to the specify url, 内部访问
@@ -795,7 +804,7 @@ var Router = /*#__PURE__*/function () {
               // forward添加在后面，并移到左侧
               if (_this8.view) {
                 // this.style.href = r.style;
-                _this8.addCss(p.css); // 准备 css
+                _this8.addCss(p); // 准备 css
 
 
                 var $v = $(v);
@@ -1080,7 +1089,7 @@ var Router = /*#__PURE__*/function () {
       // removeChild
 
       v.remove();
-      this.removeCss();
+      this.removeCss(p);
     } catch (ex) {
       console.error('hidePage exp:', ex.message);
     }
@@ -1137,7 +1146,6 @@ var Router = /*#__PURE__*/function () {
   }
   /**
    * 显示新页面
-   * @param {*} lastr 上一个路由
    * @param {*} p 当前页面实例
    * @param {*} v 当前页面Dom
    */
