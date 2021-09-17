@@ -54,7 +54,7 @@ class Router {
     nextClass: 'page-next', // page 切换新页面
     prevClass: 'page-previous', // page 切换旧页面
     showClass: 'page-current', // 显示内容层时添加的样式
-    cos: 'https://cos.nuoya.net', //  'http://localhost:3003'
+    cos: 'https://cos.wia.pub', //  'http://localhost:3003'
     api: 'https://wia.pub',
     ver: '1.0.0',
     mode: 'prod', // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
@@ -730,7 +730,7 @@ class Router {
           this.lastPage = this.page;
           // 记录当前 scrollTop
           if (this.lastPage && this.lastPage.scrollTop)
-            this.lastPage.scrollTop = this.lastPage.view.clas('page-content')?.dom?.scrollTop ?? 0;
+            this.lastPage.scrollTop = this.lastPage.view.class('page-content')?.dom?.scrollTop ?? 0;
 
           // 切换app
           this.page = p;
@@ -1091,8 +1091,8 @@ class Router {
       // 触发
       if (p.back && this.backed) {
         $.nextTick(() => {
-          if (v.clas('page-content')?.dom?.scrollTop)
-            v.clas('page-content').dom.scrollTop = p.scrollTop ?? 0;
+          if (v.class('page-content')?.dom?.scrollTop)
+            v.class('page-content').dom.scrollTop = p.scrollTop ?? 0;
           p.back(v, p.param);
         });
       }
