@@ -72,7 +72,7 @@ var Router = /*#__PURE__*/function () {
       // page 切换旧页面
       showClass: 'page-current',
       // 显示内容层时添加的样式
-      cos: 'https://cos.nuoya.net',
+      cos: 'https://cos.wia.pub',
       //  'http://localhost:3003'
       api: 'https://wia.pub',
       ver: '1.0.0',
@@ -759,7 +759,7 @@ var Router = /*#__PURE__*/function () {
         // 记录当前page实例
         _this8.lastPage = _this8.page; // 记录当前 scrollTop
 
-        if (_this8.lastPage && _this8.lastPage.scrollTop) _this8.lastPage.scrollTop = (_this8$lastPage$view$ = (_this8$lastPage$view$2 = _this8.lastPage.view.clas('page-content')) === null || _this8$lastPage$view$2 === void 0 ? void 0 : (_this8$lastPage$view$3 = _this8$lastPage$view$2.dom) === null || _this8$lastPage$view$3 === void 0 ? void 0 : _this8$lastPage$view$3.scrollTop) !== null && _this8$lastPage$view$ !== void 0 ? _this8$lastPage$view$ : 0; // 切换app
+        if (_this8.lastPage && _this8.lastPage.scrollTop) _this8.lastPage.scrollTop = (_this8$lastPage$view$ = (_this8$lastPage$view$2 = _this8.lastPage.view.class('page-content')) === null || _this8$lastPage$view$2 === void 0 ? void 0 : (_this8$lastPage$view$3 = _this8$lastPage$view$2.dom) === null || _this8$lastPage$view$3 === void 0 ? void 0 : _this8$lastPage$view$3.scrollTop) !== null && _this8$lastPage$view$ !== void 0 ? _this8$lastPage$view$ : 0; // 切换app
 
         _this8.page = p;
         $.page = _this8.page;
@@ -782,6 +782,8 @@ var Router = /*#__PURE__*/function () {
 
 
         var enter = function enter(d) {
+          var _p$$el, _p$view;
+
           p.doReady = false; // 页面上是否存在，已经隐藏
 
           var v = $.id(p.id); // debugger;
@@ -822,8 +824,6 @@ var Router = /*#__PURE__*/function () {
                   _this8.view.dom.appendChild(v);
                 }
               }
-
-              if (p.doReady) $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
             }
           } // 记录即将显示视图
 
@@ -831,8 +831,8 @@ var Router = /*#__PURE__*/function () {
           if (p.el !== v) p.el = v; // view 层保存在el中
 
           if (p.dom !== v) p.dom = v;
-          if (p.$el.dom !== v) p.$el = $(v);
-          if (p.view.dom !== v) p.view = p.$el; // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
+          if (((_p$$el = p.$el) === null || _p$$el === void 0 ? void 0 : _p$$el.dom) !== v) p.$el = $(v);
+          if (((_p$view = p.view) === null || _p$view === void 0 ? void 0 : _p$view.dom) !== v) p.view = p.$el; // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
           // 应该判断 hash 是否已经改变，如已改变，则不切换
           // alert(`hash:${this.hash} => ${this.nextHash}`);
 
@@ -873,9 +873,7 @@ var Router = /*#__PURE__*/function () {
           enter(p.dom);
         };
 
-        var nextPage = _this8.loaded(p);
-
-        _this8.getCurrentPage(); // 页面不存在则加载页面
+        var nextPage = _this8.loaded(p); // 页面不存在则加载页面
 
 
         if (!nextPage) {
@@ -1111,14 +1109,23 @@ var Router = /*#__PURE__*/function () {
       if (!p) return; // 重新绑定事件
 
       if (p.doReady) {
-        // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
-        this.pageEvent('init', p, v);
-
         if (p.ready) {
           // 如果不使用延时，加载无法获取dom节点坐标！
           //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
           $.nextTick(function () {
-            p.ready(v, p.param, _this10.backed);
+            try {
+              p.ready(v, p.param, _this10.backed);
+            } catch (exp) {
+              console.log('page ready exp!', {
+                exp: exp
+              });
+            } // ready 回调函数可能会创建 page 节点，pageInit事件在ready后触发！
+            // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
+
+
+            _this10.pageEvent('init', p, v);
+
+            $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
           });
         }
       } // 触发
@@ -1126,9 +1133,9 @@ var Router = /*#__PURE__*/function () {
 
       if (p.back && this.backed) {
         $.nextTick(function () {
-          var _v$clas, _v$clas$dom, _p$scrollTop;
+          var _v$class, _v$class$dom, _p$scrollTop;
 
-          if ((_v$clas = v.clas('page-content')) !== null && _v$clas !== void 0 && (_v$clas$dom = _v$clas.dom) !== null && _v$clas$dom !== void 0 && _v$clas$dom.scrollTop) v.clas('page-content').dom.scrollTop = (_p$scrollTop = p.scrollTop) !== null && _p$scrollTop !== void 0 ? _p$scrollTop : 0;
+          if ((_v$class = v.class('page-content')) !== null && _v$class !== void 0 && (_v$class$dom = _v$class.dom) !== null && _v$class$dom !== void 0 && _v$class$dom.scrollTop) v.class('page-content').dom.scrollTop = (_p$scrollTop = p.scrollTop) !== null && _p$scrollTop !== void 0 ? _p$scrollTop : 0;
           p.back(v, p.param);
         });
       }

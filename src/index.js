@@ -1060,29 +1060,30 @@ class Router {
    * 启动动画前调用show/ready事件,在页面显示前,准备好页面
    * 如果在动画后调用,会先看到旧页面残留,体验不好
    * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
-   * 获取dom 元素时,最好限定在事件参数pg范围获取.
+   * 获取dom 元素时,最好限定在事件参数view范围获取.
    * @param {*} p 页面实例
-   * @param {*} v 页面，$Dom 对象
    */
-  onShow(p, v) {
+  onShow(p) {
     try {
       if (!p) return;
 
+      const v = p.view;
+
       // 重新绑定事件
       if (p.doReady) {
-        // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
-        this.pageEvent('init', p, v);
-
         if (p.ready) {
           // 如果不使用延时，加载无法获取dom节点坐标！
           //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
           $.nextTick(() => {
             try {
             p.ready(v, p.param, this.backed);
-            } catch (e) {
-              console.log('page ready exp:', e.message);
+            } catch (exp) {
+              console.log('page ready exp!', {exp});
             }
 
+            // ready 回调函数可能会创建 page 节点，pageInit事件在ready后触发！
+            // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
+            this.pageEvent('init', p, v);
             $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
           });
         }
@@ -1108,16 +1109,17 @@ class Router {
   }
 
   /**
-   * 显示新页面
+   * 通过css设置，显示新页面
    * @param {*} p 当前页面实例
-   * @param {*} v 当前页面Dom
    */
-  showPage(p, v) {
-    if (v) {
+  showPage(p) {
+    if (p) {
+      const v = p.view;
       v.removeClass(this.opt.nextClass);
       v.removeClass(this.opt.prevClass);
 
       // master-detail 主从页面，主页面一直显示
+      // 页面包含主从样式，应用view添加主从样式，否则，删除主从样式
       if (v.hasClass('page-master') || v.hasClass('page-master-detail'))
         this.view.addClass('view-master-detail');
       else if (this.view.hasClass('view-master-detail'))
@@ -1155,7 +1157,7 @@ class Router {
 
     let to = $.id(p.id);
     if (to) {
-      to = $(to); // p.view; // $(to); ready/show 在实例view上修改
+      to = p.view; // $(to); ready/show 在页面实例view上修改
       // master page not hide!
       if (to.hasClass('page-master')) from = null;
     }
@@ -1171,22 +1173,22 @@ class Router {
         if (this.noAni) {
           this.noAni = false;
           this.hidePage(fp, from);
-          this.onShow(p, to); // ready
-          this.showPage(p, to);
+          this.onShow(p); // ready
+          this.showPage(p);
         } else {
           // 需要动画，先触发show事件
-          this.onShow(p, to); // ready 提前处理，切换效果好
+          this.onShow(p); // ready 提前处理，切换效果好
           this.aniPage(from, to, dir, () => {
             // 动画结束
             this.hidePage(fp, from);
-            this.showPage(p, to);
+            this.showPage(p);
           });
         }
       } else if (from) {
         this.hidePage(fp, from);
       } else if (to) {
-        this.onShow(p, to); // ready
-        this.showPage(p, to);
+        this.onShow(p); // ready
+        this.showPage(p);
       }
     }
     setTitle(this.page.title);

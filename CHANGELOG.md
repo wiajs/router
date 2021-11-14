@@ -1,5 +1,12 @@
 # Change Log
 
+## 2021-11-14
+
+- onShow/showPage
+  view 使用page实例的view，避免页面name节点直接挂载Page实例view 不可访问。
+- this.pageEvent('init', p, v) 在 ready 后触发！
+	ready事件中创建的UI组件，也能执行组件初始化
+
 ## 2021-09-13
 
 - $.clas -> $.class
