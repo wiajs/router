@@ -1,11 +1,41 @@
 # Change Log
 
+## 2022-01-06
+
+### 并发 go param bug 修正
+
+路由 go 的 param 按 hash 保存，避免同时 go 时 param 丢失！
+
+主从模式，从 master 里面加载子页面，避免 go 并发路由中的全局变量混乱。
+
+```js
+if (!hash) $.go('master', {path: 'pay/index'});
+else if (hash.match('/loan/|/pay|/order|/mine|/dist'))
+  // 先加载master页面，由master加载detail页面 $.go('pay/index');
+  $.go('master', {path: hash, param});
+else $.go(hash, param);
+```
+
+- this.param = {}; // 改为按 hash 存储的 kv，避免连续 go 时 param 丢失！
+- this.refresh = {};
+- load page 变量改为 path，避免与 Page 实例混淆
+
+### 跨应用事件安全问题
+
+- pageEvent  
+  触发全局应用页面事件存在安全问题！！！
+  触发 app 的自身事件。
+  r.app.emit(`local::${camelName}`, page);
+  // p.emit(camelName, page); // Page 实例向上传递事件到 App 实例
+  非 local 事件会通过组件冒泡到应用层，跨页面事件触发，仅限相同应用所有者，
+  也就是说跨应用所有者的全局事件触发无效，避免应用间数据泄露问题！
+
 ## 2021-11-14
 
 - onShow/showPage
-  view 使用page实例的view，避免页面name节点直接挂载Page实例view 不可访问。
+  view 使用 page 实例的 view，避免页面 name 节点直接挂载 Page 实例 view 不可访问。
 - this.pageEvent('init', p, v) 在 ready 后触发！
-	ready事件中创建的UI组件，也能执行组件初始化
+  ready 事件中创建的 UI 组件，也能执行组件初始化
 
 ## 2021-09-13
 

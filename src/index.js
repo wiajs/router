@@ -1,6 +1,7 @@
 /**
- * 开放、互联 前端路由
+ * wia 前端路由
  * First Version Released on: September 13,2016
+ * Copyright © 2014-2021 Sibyl Yu
  */
 
 /* global
@@ -42,7 +43,9 @@ const EVENTS = {
 };
 
 /**
- * a very simple router for the **demo** of [weui](https://github.com/weui/weui)
+ * wia router
+ * router为wia应用全局应用，存在实例变量
+ * 不推荐并发go，如多个页面，请在第一个页面的show或ready中，go另外一个页面！
  */
 class Router {
   // default option
@@ -95,7 +98,8 @@ class Router {
     // this.app = this.opt.app;
     // this.app.router = this;
     this.view = $(`#${this.opt.view}`);
-    this.param = {};
+    this.param = {}; // 改为按hash存储的kv，避免连续go时param丢失！
+    this.refresh = {};
     this.page = null; // 当前 page 实例
     this.lastPage = null; // 上一个 page 实例
     this.lastApp = null; // 上一个应用实例
@@ -215,9 +219,9 @@ class Router {
 
         // const state = history.state || {};
         // this.to(hash, state._index <= this._index);
-        this.routeTo(hs[hs.length - 1], this.param, this.refresh); //  , oldHash);
-        this.refresh = false;
-        this.param = null;
+        this.routeTo(hs[hs.length - 1], this.param[newHash], this.refresh[newHash]); //  , oldHash);
+        if (this.param[newHash]) delete this.param[newHash]; // 安全原因，删除
+        if (this.refresh[newHash]) delete this.param[newHash]; // 删除
         this.nextHash = '';
       },
       false
@@ -257,8 +261,8 @@ class Router {
       this.routeTo(url, param, refresh);
     } else {
       // 切换页面hash，通过 hash变化事件来路由
-      this.param = param;
-      this.refresh = refresh;
+      this.param[url] = param;
+      this.refresh[url] = refresh;
       this.nextHash = url;
       setHash(url);
     }
@@ -320,9 +324,13 @@ class Router {
   }
 
   back(param, refresh = false) {
-    this.param = param;
-    this.refresh = refresh;
+    if (this.hash?.length > 1) {
+      const url = this.hash[this.hash.length - 2];
+      this.param[url] = param;
+      this.refresh[url] = refresh;
+    }
 
+    // 浏览器回退
     window.history.back();
   }
 
@@ -353,26 +361,21 @@ class Router {
         // const ms = url.match(/([^/]+)\/([^/]+)\/?([^?]*)([\s\S]*)/);
         const owner = ms?.[1];
         const name = ms?.[2];
-        let page = ms?.[3];
+        let path = ms?.[3];
         // 默认page 为 index
-        if (owner && name && !page) page = 'index';
-        let path = '';
-        if (page && page.includes('/')) {
-          const pos = page.lastIndexOf('/');
-          path = page.substr(0, pos);
-        }
+        if (owner && name && !path) path = 'index';
 
-        console.log('load', {owner, name, page, path});
+        console.log('load', {owner, name, path});
 
         // 加载页面必须 owner、name 和 page
-        if (!owner || !name || !page) res('');
+        if (!owner || !name || !path) res('');
         // 本地调试状态，直接获取本地页面
         else if (this.opt.mode === 'local') {
           let appCss = null;
 
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
           const pgHtml = new Promise((resHtml, rejHtml) => {
-            const pgurl = `${this.opt.local}/page/${page}.html?v=${Date.now()}`;
+            const pgurl = `${this.opt.local}/page/${path}.html?v=${Date.now()}`;
             // console.log('router load html:', {url: pgurl});
             $.get(pgurl).then(
               rs => {
@@ -380,7 +383,8 @@ class Router {
                 // debugger;
                 // console.log('router load html:', {url: pgurl, rs});
                 // 获得页面模块类，并创建页面对象实例
-                const Cls = __webpack_require__(`./src/page/${page}.js`); // eslint-disable-line
+                const Cls = __webpack_require__(`./src/page/${path}.js`); // eslint-disable-line
+                // 创建页面实例
                 const p = new Cls.default({app: this.app}); // eslint-disable-line
 
                 p.html = rs;
@@ -389,7 +393,7 @@ class Router {
                 // 保存应用所有者和应用名称
                 p.owner = owner;
                 p.appName = name;
-                p.url = `/${owner}/${name}/${page}`;
+                p.url = `/${owner}/${name}/${path}`;
                 p.path = path;
 
                 this.cachePage(p); // save page instance
@@ -400,7 +404,7 @@ class Router {
           });
 
           const pgCss = new Promise((resCss, rejCss) => {
-            const pgurl = `${this.opt.local}/page/${page}.css?v=${Date.now()}`;
+            const pgurl = `${this.opt.local}/page/${path}.css?v=${Date.now()}`;
             // console.log(`router load css:${url}`);
             $.get(pgurl).then(
               rs => {
@@ -426,8 +430,8 @@ class Router {
           // debugger;
 
           if (this.opt.cos.includes('localhost:'))
-            url = `${this.opt.cos}/page/${page}.js?v=${Date.now()}`;
-          else url = `${this.opt.cos}/${owner}/${name}/page/${page}.js?v=${Date.now()}`;
+            url = `${this.opt.cos}/page/${path}.js?v=${Date.now()}`;
+          else url = `${this.opt.cos}/${owner}/${name}/page/${path}.js?v=${Date.now()}`;
 
           // console.log('router load page:', {url});
 
@@ -449,7 +453,7 @@ class Router {
                 // 保存应用所有者和应用名称
                 p.owner = owner;
                 p.appName = name;
-                p.url = `/${owner}/${name}/${page}`;
+                p.url = `/${owner}/${name}/${path}`;
                 p.path = path;
 
                 this.cachePage(p);
@@ -697,7 +701,8 @@ class Router {
    * @param {Object} 参数对象
    * @returns {Router}
    */
-  routeTo(url, param, refresh) {
+  routeTo(url, param, refresh = false) {
+    refresh = refresh ?? false;
     console.log('routeTo ', {url, param, refresh});
 
     let p = this.findPage(url, param, refresh);
@@ -716,7 +721,7 @@ class Router {
    * 切换到指定页面
    * @param {*} p 当前page实例
    */
-  to(p, refresh) {
+  to(p, refresh = false) {
     if (!p) {
       console.error('route to null page.');
       return;
@@ -901,12 +906,12 @@ class Router {
 
   /**
    * 从缓存ps中查找页面实例
-   * /ower/name/pag，去掉参数，参数放入 r.param
+   * /ower/name/path，去掉参数，参数放入 r.param
    * @param {String} url /ower/name/page
    * @param {Object} param
    * @returns {Object}
    */
-  findPage(url, param, refresh) {
+  findPage(url, param, refresh = false) {
     let R = null;
 
     const rs = this.parseUrl(url);
@@ -1043,7 +1048,12 @@ class Router {
       v.removeClass(this.opt.nextClass);
 
       // 触发隐藏事件
+      try {
       if (p.hide) p.hide(v);
+      } catch (exp) {
+        console.log('page hide exp!', {exp});
+      }
+      // this.pageEvent('hide', p, v);
 
       // 缓存当前 page
       // this.vs[p.id] = v.dom;
@@ -1083,6 +1093,7 @@ class Router {
 
             // ready 回调函数可能会创建 page 节点，pageInit事件在ready后触发！
             // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
+            // 跨页面事件，存在安全问题，所有f7组件需修脱离app，仅作为Page组件！！！
             this.pageEvent('init', p, v);
             $.fastLink(); // 对所有 link 绑定 ontouch，消除 300ms等待
           });
@@ -1092,15 +1103,25 @@ class Router {
       // 触发
       if (p.back && this.backed) {
         $.nextTick(() => {
+          try {
           if (v.class('page-content')?.dom?.scrollTop)
             v.class('page-content').dom.scrollTop = p.scrollTop ?? 0;
           p.back(v, p.param);
+          } catch (exp) {
+            console.log('page back exp!', {exp});
+          }
+          // this.pageEvent('back', p, v);
         });
       }
 
       if (p.show && !this.backed) {
         $.nextTick(() => {
+          try {
           p.show(v, p.param);
+          } catch (exp) {
+            console.log('page show exp!', {exp});
+          }
+          // this.pageEvent('show', p, v);
         });
       }
     } catch (ex) {
@@ -1246,10 +1267,13 @@ class Router {
         v[0].f7PageInitialized = true;
       }
 
-      // 触发当前页面事件
+      // 触发当前页面Dom事件，不存在安全问题
       v.trigger(colonName, page);
-      // 触发页面模块事件
-      r.app.emit(camelName, page);
+
+      // 触发全局应用页面事件
+      // 存在安全问题！！！
+      r.app.emit(`local::${camelName}`, page);
+      // p.emit(camelName, page); // Page 实例向上传递事件到App实例
     } catch (ex) {
       console.error(`pageEvent exp:${ex.message}`);
     }
