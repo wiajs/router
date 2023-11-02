@@ -65,6 +65,6 @@ The resulting files are:
 
 ## License
 
-[ELv2](https://www.elastic.co/cn/licensing/elastic-license)
+[ELv2](https://www.elastic.co/licensing/elastic-license)
 
 Copyright (c) 2020-present Sibyl Yu
