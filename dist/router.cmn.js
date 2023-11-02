@@ -1,3 +1,10 @@
+/*!
+  * wia dom v1.0.11
+  * (c) 2015-2023 Sibyl Yu and contributors
+  * Released under the MIT License.
+  */
+'use strict';
+
 /**
  * wia 前端路由
  * First Version Released on: September 13,2016
@@ -9,37 +16,10 @@
 
 let location = window.location; // eslint-disable-line
 
-const CFG = {
-  sectionGroupClass: 'page-group',
-  // 用来辅助切换时表示 page 是 visible 的,
-  // 之所以不用 curPageClass，是因为 page-current 已被赋予了「当前 page」这一含义而不仅仅是 display: block
-  // 并且，别的地方已经使用了，所以不方便做变更，故新增一个
-  visiblePageClass: 'page-visible',
-};
-
-const DIRECTION = {
-  leftToRight: 'from-left-to-right',
-  rightToLeft: 'from-right-to-left',
-};
-
 const API = {
   getCode: 'auth/getCode', // 获取当前登录用户临时code
   getToken: 'auth/getToken', // 获取指定应用token
   checkToken: 'auth/checkToken', // 指定应用token
-};
-
-const EVENTS = {
-  pageLoadStart: 'pageLoadStart', // ajax 开始加载新页面前
-  pageLoadCancel: 'pageLoadCancel', // 取消前一个 ajax 加载动作后
-  pageLoadError: 'pageLoadError', // ajax 加载页面失败后
-  pageLoadComplete: 'pageLoadComplete', // ajax 加载页面完成后（不论成功与否）
-  pageAnimationStart: 'pageAnimationStart', // 动画切换 page 前
-  pageAnimationEnd: 'pageAnimationEnd', // 动画切换 page 结束后
-  beforePageRemove: 'beforePageRemove', // 移除旧 document 前（适用于非内联 page 切换）
-  pageRemoved: 'pageRemoved', // 移除旧 document 后（适用于非内联 page 切换）
-  // page 切换前，pageAnimationStart 前，beforePageSwitch后会做一些额外的处理才触发 pageAnimationStart
-  beforePageSwitch: 'beforePageSwitch',
-  pageInit: 'pageInitInternal', // 目前是定义为一个 page 加载完毕后（实际和 pageAnimationEnd 等同）
 };
 
 // default option
@@ -1406,17 +1386,6 @@ function setTitle(val) {
   */
 }
 
-/**
- * 获取一个 url 的基本部分，即不包括 hash
- *
- * @param {String} url url
- * @returns {String}
- */
-function getBaseUrl(url) {
-  const pos = url.indexOf('#');
-  return pos === -1 ? url.slice(0) : url.slice(0, pos);
-}
-
 $.go = (url, param = null, refresh = false) => {
   $.router.go(url, param, refresh);
 };
@@ -1427,4 +1396,4 @@ $.back = (param, refresh = false) => {
 
 Router.default = Router;
 
-export default Router;
+module.exports = Router;

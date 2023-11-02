@@ -144,7 +144,7 @@ export default class Home extends Page {
 }
 
 function bind() {
-  btnLogin.onclick = function() {
+  btnLogin.onclick = function () {
     $.page.data = {x: 1, y: 2};
     $.back(true);
     // $.go('login', {user: {name: 'test'}}, false);
@@ -253,8 +253,8 @@ Dom 对象，类似 jQuery，使用 dom 库封装的方法操作。
    注意，data 仅仅用于跨页面数据交互，页面的数据，请使用内部变量。
 2. `$.back`：回退前设置数据：
    `$.back({data}, refresh)`
-   回退后，通过 `show(pg, param)` 中的param即可读取。
-   回退时，refresh: false，ready 不会触发，只触发 show，中的back 为 true。
+   回退后，通过 `show(pg, param)` 中的 param 即可读取。
+   回退时，refresh: false，ready 不会触发，只触发 show，中的 back 为 true。
 3. `$.go`：虽然 go 也能使用 data 传递数据，但还是建议使用 `param`，而不是 `data`。
    param 用于进入，data 用于应用内返回。
    跨应用返回，只能使用 go，页面刷新，等于重新进入应用，此时只能通过 url 传递参数。
