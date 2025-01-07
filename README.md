@@ -65,6 +65,6 @@ The resulting files are:
 
 ## License
 
-[MIT](http://opensource.org/licenses/MIT)
+[ELv2](https://www.elastic.co/cn/licensing/elastic-license)
 
 Copyright (c) 2020-present Sibyl Yu

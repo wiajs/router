@@ -42,28 +42,28 @@ const EVENTS = {
   pageInit: 'pageInitInternal', // 目前是定义为一个 page 加载完毕后（实际和 pageAnimationEnd 等同）
 };
 
+// default option
+const def = {
+  view: 'wia-view',
+  style: 'wia-style',
+  splashTime: 1000,
+  className: 'page', // 创建内容层时需添加的样式
+  nextClass: 'page-next', // page 切换新页面
+  prevClass: 'page-previous', // page 切换旧页面
+  showClass: 'page-current', // 显示内容层时添加的样式
+  cos: 'https://cos.wia.pub', //  'http://localhost:3003'
+  api: 'https://wia.pub',
+  ver: '1.0.2',
+  mode: 'prod', // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
+  transition: 'f7-flip',
+};
+
 /**
  * wia router
  * router为wia应用全局应用，存在实例变量
  * 不推荐并发go，如多个页面，请在第一个页面的show或ready中，go另外一个页面！
  */
 class Router {
-  // default option
-  opt = {
-    view: 'wia-view',
-    style: 'wia-style',
-    splashTime: 1000,
-    className: 'page', // 创建内容层时需添加的样式
-    nextClass: 'page-next', // page 切换新页面
-    prevClass: 'page-previous', // page 切换旧页面
-    showClass: 'page-current', // 显示内容层时添加的样式
-    cos: 'https://cos.wia.pub', //  'http://localhost:3003'
-    api: 'https://wia.pub',
-    ver: '1.0.0',
-    mode: 'prod', // 打包代码， 是否压缩，生产  prod，调试 dev, 本地调试 local
-    transition: 'f7-flip',
-  };
-
   _index = 1;
 
   // container element
@@ -86,21 +86,26 @@ class Router {
 
   /**
    * constructor
-   * @param opt
+   * @param opts
    */
-  constructor(opt) {
+  constructor(opts) {
     // if (Router.instance) {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
     // }
     // Router.instance = this; // 是否控制为单例？
 
-    this.opt = $.assign({}, this.opt, opt);
+    this.opt = {...def, ...opts};
+    const {opt} = this;
     // this.app = this.opt.app;
     // this.app.router = this;
     this.view = $(`#${this.opt.view}`);
-    this.param = {}; // 改为按hash存储的kv，避免连续go时param丢失！
+    /** @type {*} */
+    this.param = {}; // 页面传递参数，按hash存储的kv，避免连续go时param丢失！
+    /** @type {*} */
     this.refresh = {};
     this.page = null; // 当前 page 实例
+    this.pages = opt.pages; // vite 调试需要
+    if (opt.pages) this.vite = true; // vite 调试模式
     this.lastPage = null; // 上一个 page 实例
     this.lastApp = null; // 上一个应用实例
 
@@ -112,7 +117,7 @@ class Router {
     this.splash = true;
 
     this.lastHash = ''; // 前hash
-    this.hash = []; // hash数组
+    this.hash = []; // hash数组，记录应用 导航路径，go 增加、back 减少
     this.nextHash = ''; // 需到达的 hash
 
     this.lastOwner = ''; // 上一个应用所有者
@@ -121,24 +126,25 @@ class Router {
 
     this.backed = false; // 是否为返回
 
-    this.owner = this.opt.owner; // 当前应用所有者
-    this.appName = this.opt.name; // 当前应用名称
+    this.owner = opt.owner; // 当前应用所有者
+    this.appName = opt.name; // 当前应用名称
     this.path = ''; // 当前应用路径，去掉参数部分，不包括页面文件，a/b/c/1.html?x=1 为：c
     // 当前应用实例
     // 创建路由时，需创建启动 app，每个应用都可能成为wia store 入口
     let appCls = null;
     if (this.opt.mode === 'local')
       // eslint-disable-next-line
-      appCls = __webpack_require__('./src/index.js');
+      appCls = this.pages?.['./src/index'] ?? __webpack_require__('./src/index.js').default;
     // eslint-disable-line
     else appCls = __m__(`./${this.owner}/${this.name}/src/index.js`); // eslint-disable-line
 
     // eslint-disable-next-line
-    const app = new appCls.default({
+    const app = new appCls({
       // App root element
-      root: this.opt.root,
-      owner: this.opt.owner,
-      name: this.opt.name,
+      el: opt.el || opt.root,
+      theme: opt.theme ?? 'auto',
+      owner: opt.owner,
+      name: opt.name,
       init: true, // 启动wia应用时，创建路由，同时创建app
     });
 
@@ -167,7 +173,8 @@ class Router {
     // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
     // pushState 不支持 微信侧滑返回
     // 不带 hash 到 hash,返回时, 不能触发该事件,因此一开始就要设置 hash,否则无法回到 首页!
-    // 监控url hash变化
+
+    // 监控浏览器 url hash变化
     window.addEventListener(
       'hashchange',
       event => {
@@ -176,11 +183,12 @@ class Router {
         // ???
         console.log(`router hash:${oldHash} -> ${newHash}`);
 
-        // 将不合规范url修改为规范url
         let to = newHash || 'index';
         // debugger;
+        // 将不合规范url修改为规范url
         to = this.repairUrl(to);
 
+        // 如不一致，重设 hash
         if (newHash !== to) {
           setHash(to);
           return;
@@ -192,7 +200,7 @@ class Router {
         //   return;
         // }
 
-        // 无变化
+        // 无变化，页面刷新
         if (newHash === oldHash) {
           this.nextHash = '';
           return;
@@ -205,23 +213,29 @@ class Router {
         this.backed = false; // 是否返回
         this.hash = this.hash || [];
         const hs = this.hash;
-        if (!hs || hs.length === 0 || (hs.length > 0 && hs[hs.length - 1] !== newHash)) {
-          if (hs.length > 0) console.log(`hash:${hs[hs.length - 1]} -> ${newHash}`);
-          else console.log(`hash:null -> ${newHash}`);
+        const hslen = hs.length;
+        this.lastHash = hslen > 0 ? hs[hslen - 1] : '';
 
-          hs.push(newHash);
-        } else if (hs.length > 1 && hs[hs.length - 2] === newHash) {
+        // 新的 hash
+        if (hslen > 1 && hs[hslen - 2] === newHash) {
+          // 回退
           this.backed = true;
-          console.log(`back hash:${hs[hs.length - 2]} <- ${newHash}`);
+          console.log(`hash:${newHash} <- ${this.lastHash}`);
+          // 删除 最后 hash
           hs.pop();
-        } else if (hs.length > 0 && hs[hs.length - 1] === newHash)
-          console.log(`same hash: ${newHash}`);
+        } else if (this.lastHash === newHash)
+          console.log(`hash: -- ${newHash}`); // same
+        else if (this.lastHash !== newHash) {
+          console.log(`hash:${this.lastHash} -> ${newHash}`);
+          hs.push(newHash);
+        }
 
         // const state = history.state || {};
         // this.to(hash, state._index <= this._index);
-        this.routeTo(hs[hs.length - 1], this.param[newHash], this.refresh[newHash]); //  , oldHash);
-        if (this.param[newHash]) delete this.param[newHash]; // 安全原因，删除
-        if (this.refresh[newHash]) delete this.param[newHash]; // 删除
+        [to] = hs.slice(-1);
+        // console.log('hashchange', {to});
+        this.routeTo(to, this.param[to], this.refresh[to], this.lastHash); //  , oldHash);
+
         this.nextHash = '';
       },
       false
@@ -253,11 +267,12 @@ class Router {
 
     // console.log('go ', {url, param, refresh, href: location.href});
 
-    // 当前网页重新加载，不会触发 hash 事件，直接路由
+    // 刷新当前网页重新加载应用，不会触发 hashchange事件，当前hash作为第一个路由点
     if (getHash(location.href) === url) {
       // `#${url}`;
-      this.nextHash = getHash(url);
-      if (this.hash[this.hash.length - 1] !== this.nextHash) this.hash.push(this.nextHash);
+      this.nextHash = url;
+      if (!this.hash.length || this.hash[this.hash.length - 1] !== this.nextHash)
+        this.hash.push(this.nextHash);
       this.routeTo(url, param, refresh);
     } else {
       // 切换页面hash，通过 hash变化事件来路由
@@ -287,11 +302,27 @@ class Router {
       R = url;
       if (url === '/') R = '/';
       else if (url === '~') R = `/${this.owner}/${this.appName}/index`;
-      // else if (url.startsWith('../'))
-      //   R = url.replace(/\.\.\//, `/${this.opt.owner}/`);
-      // 当前路径
-      else if (url.startsWith('./') && this.path) {
-        R = `/${this.owner}/${this.appName}/${this.path}/${url.substr(2)}`;
+      else if (url.startsWith('../')) {
+        // 上一级路径
+        let {path} = this;
+        let pos = this.path.lastIndexOf('/');
+        if (pos > -1) {
+          path = path.substring(0, pos);
+          pos = this.path.lastIndexOf('/');
+          if (pos > -1) path = path.substring(0, pos);
+          else path = '';
+        } else path = '';
+
+        if (path === '') R = `/${this.owner}/${this.appName}/${url.substr(3)}`;
+        else R = `/${this.owner}/${this.appName}/${path}/${url.substr(3)}`;
+      } else if (url.startsWith('./') && this.path) {
+        // 当前路径
+        let {path} = this;
+        const pos = this.path.lastIndexOf('/');
+        if (pos > -1) {
+          path = path.substring(0, pos);
+          R = `/${this.owner}/${this.appName}/${path}/${url.substr(2)}`;
+        } else R = `/${this.owner}/${this.appName}/${url.substr(2)}`;
       } else if (!url.startsWith('/')) R = `/${this.owner}/${this.appName}/${url}`;
       // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
       // /ower/app => /ower/app/index
@@ -323,11 +354,16 @@ class Router {
     return R;
   }
 
+  /**
+   * 回退
+   * @param {*} param 参数
+   * @param {*} refresh 刷新
+   */
   back(param, refresh = false) {
     if (this.hash?.length > 1) {
-      const url = this.hash[this.hash.length - 2];
-      this.param[url] = param;
-      this.refresh[url] = refresh;
+      const to = this.hash[this.hash.length - 2];
+      this.param[to] = param;
+      this.refresh[to] = refresh;
     }
 
     // 浏览器回退
@@ -383,11 +419,16 @@ class Router {
                 // debugger;
                 // console.log('router load html:', {url: pgurl, rs});
                 // 获得页面模块类，并创建页面对象实例
-                const Cls = __webpack_require__(`./src/page/${path}.js`); // eslint-disable-line
+                const Cls =
+                  this.pages?.[`./page/${path}`] ??
+                  __webpack_require__(`./src/page/${path}.js`).default; // eslint-disable-line
                 // 创建页面实例
-                const p = new Cls.default({app: this.app}); // eslint-disable-line
+                const p = new Cls({app: this.app}); // eslint-disable-line
 
-                p.html = rs;
+                // 去掉 vite 添加的 脚本标签
+                p.html = this.vite
+                  ? rs.replace('<script type="module" src="/@vite/client"></script>', '')
+                  : rs;
                 p.param = param;
 
                 // 保存应用所有者和应用名称
@@ -406,14 +447,20 @@ class Router {
           const pgCss = new Promise((resCss, rejCss) => {
             const pgurl = `${this.opt.local}/page/${path}.css?v=${Date.now()}`;
             // console.log(`router load css:${url}`);
-            $.get(pgurl).then(
-              rs => {
-                // debugger;
-                // console.log('router load css:', {url: pgurl, rs});
-                resCss(rs);
-              },
-              err => rejCss(err)
-            );
+            if (this.vite) {
+              import(`${this.opt.local}/page/${path}.css`)
+                .then(m => resCss(m))
+                .catch(err => rejCss(err));
+            } else {
+              $.get(pgurl).then(
+                rs => {
+                  // debugger;
+                  // console.log('router load css:', {url: pgurl, rs});
+                  resCss(rs);
+                },
+                err => resCss('') //rejCss(err)
+              );
+            }
           });
 
           Promise.all([pgHtml, pgCss])
@@ -514,12 +561,12 @@ class Router {
             let appCls = null;
             if (this.opt.mode === 'local')
               // eslint-disable-next-line
-              appCls = __webpack_require__('./src/index.js');
+              appCls = this.pages?.['./src/index'] ?? __webpack_require__('./src/index.js').default;
             // eslint-disable-line
             else appCls = __m__(`./${this.owner}/${this.name}/src/index.js`); // eslint-disable-line
 
             // eslint-disable-next-line
-            app = new appCls.default({
+            app = new appCls({
               // App root element
               root: this.opt.root,
               owner: this.opt.owner,
@@ -676,13 +723,15 @@ class Router {
    * 向页面添加样式
    */
   addCss(p) {
-    const id = `css-${p.id}`;
-    let d = $.id(id);
-    if (!d) {
-      d = document.createElement('style');
-      d.id = id;
-      d.innerHTML = p.css;
-      $('head').append(d);
+    if (p.css) {
+      const id = `css-${p.id}`;
+      let d = $.id(id);
+      if (!d) {
+        d = document.createElement('style');
+        d.id = id;
+        d.innerHTML = p.css;
+        $('head').append(d);
+      }
     }
   }
 
@@ -697,31 +746,35 @@ class Router {
 
   /**
    * route to the specify url, 内部访问
-   * @param {String} url
-   * @param {Object} 参数对象
-   * @returns {Router}
+   * @param {string} url 新hash
+   * @param {Object} param 参数
+   * @param {boolean=} refresh 强制刷新，重新加载
+   * @param {string=} lastHash 前hash
    */
-  routeTo(url, param, refresh = false) {
+  routeTo(url, param, refresh = false, lastHash = '') {
     refresh = refresh ?? false;
     console.log('routeTo ', {url, param, refresh});
 
+    // 已缓存页面
     let p = this.findPage(url, param, refresh);
-    if (p) this.to(p, refresh);
+    if (p) this.to(p, refresh, lastHash);
     else {
       // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
       // 没有缓存，则动态加载
       this.load(url, param).then(lr => {
         p = this.findPage(url, param, refresh);
-        if (p) this.to(p, refresh);
+        if (p) this.to(p, refresh, lastHash);
       });
     }
   }
 
   /**
    * 切换到指定页面
-   * @param {*} p 当前page实例
+   * @param {*} p 当前page类实例，已创建
+   * @param {boolean=} refresh 刷新
+   * @param {string} lastHash 前hash
    */
-  to(p, refresh = false) {
+  to(p, refresh = false, lastHash = '') {
     if (!p) {
       console.error('route to null page.');
       return;
@@ -753,7 +806,16 @@ class Router {
             console.log(`to back id:${p.id} <- ${ids[ids.length - 1]}`);
             ids.pop();
           } else if (ids.length > 0 && ids[ids.length - 1] === p.id) {
-            console.log(`to same id: ${p.id}`);
+            if (p.change && p.search !== p.lastSearch) {
+              console.log(`search ${p.lastSearch} -> ${p.search}`);
+              $.nextTick(() => {
+                try {
+                  p.change(p.view, p.search, p.lastSearch);
+                } catch (exp) {
+                  console.log('page change exp!', {exp});
+                }
+              });
+            } else console.log(`to same id: ${p.id}`);
           } else if (ids.length === 0 || (ids.length > 0 && ids[ids.length - 1] !== p.id)) {
             if (ids.length > 0) console.log(`to id:${ids[ids.length - 1]} -> ${p.id}`);
             else console.log(`to id:null -> ${p.id}`);
@@ -761,7 +823,7 @@ class Router {
             ids.push(p.id);
           }
 
-          // 进入跳转的页面, d 为 dom 对象
+          // 进入跳转的页面, p为页面类实例，d为页面dom对象
           const enter = d => {
             p.doReady = false;
 
@@ -780,24 +842,24 @@ class Router {
                 p.doReady = true;
               }
 
-              if (v) {
-                // back 插在前面
-                // forward添加在后面，并移到左侧
-                if (this.view) {
-                  // this.style.href = r.style;
+              // back 插在前面
+              // forward添加在后面，并移到左侧
+              if (v && this.view) {
+                // this.style.href = r.style;
+                if (!this.vite)
+                  // vite 已加载 css
                   this.addCss(p); // 准备 css
-                  const $v = $(v);
-                  const pm = $v.hasClass('page-master');
-                  if ((this.backed || pm) && this.view.hasChild()) {
-                    if (this.opt.className) $v.addClass(`${this.opt.className}`);
-                    if (this.opt.prevClass && !pm) $v.addClass(`${this.opt.prevClass}`);
-                    // master 和 前页面 插到前面
-                    this.view.dom.insertBefore(v, this.view.lastChild().dom);
-                  } else {
-                    if (this.opt.className) $v.addClass(`${this.opt.className}`);
-                    if (this.opt.nextClass && !pm) $v.addClass(`${this.opt.nextClass}`);
-                    this.view.dom.appendChild(v);
-                  }
+                const $v = $(v);
+                const pm = $v.hasClass('page-master');
+                if ((this.backed || pm) && this.view.hasChild()) {
+                  if (this.opt.className) $v.addClass(`${this.opt.className}`);
+                  if (this.opt.prevClass && !pm) $v.addClass(`${this.opt.prevClass}`);
+                  // master 和 前页面 插到前面
+                  this.view.dom.insertBefore(v, this.view.lastChild().dom);
+                } else {
+                  if (this.opt.className) $v.addClass(`${this.opt.className}`);
+                  if (this.opt.nextClass && !pm) $v.addClass(`${this.opt.nextClass}`);
+                  this.view.dom.appendChild(v);
                 }
               }
             }
@@ -805,14 +867,14 @@ class Router {
             // 记录即将显示视图
             if (p.el !== v) p.el = v; // view 层保存在el中
             if (p.dom !== v) p.dom = v;
-            if (p.$el?.dom !== v) p.$el = $(v);
+            if (p.$el?.dom !== v) p.$el = $(v, true); // 加载name
             if (p.view?.dom !== v) p.view = p.$el;
 
             // 动画方式切换页面，如果页面在 ready 中被切换，则不再切换！
             // 应该判断 hash 是否已经改变，如已改变，则不切换
             // alert(`hash:${this.hash} => ${this.nextHash}`);
             if (!this.nextHash || this.nextHash === this.hash[this.hash.length - 1]) {
-              this.switchPage(p, this.backed);
+              this.switchPage(p, this.backed, lastHash);
             }
           };
 
@@ -832,9 +894,9 @@ class Router {
             // console.log('onload html:', html);
 
             // 创建 页面层
-            const $v = $(html);
+            const $v = $(html, true);
             $v.dom.id = p.id;
-            p.view = $v; // dom 对象保存到页面实体的view中
+            p.view = $v; // $dom 保存到页面实体的view中
             p.$el = $v;
             p.el = $v.dom;
             p.dom = $v.dom;
@@ -1049,7 +1111,7 @@ class Router {
 
       // 触发隐藏事件
       try {
-      if (p.hide) p.hide(v);
+        if (p.hide) p.hide(v);
       } catch (exp) {
         console.log('page hide exp!', {exp});
       }
@@ -1072,8 +1134,9 @@ class Router {
    * 上个页面和当前页面同时存在,如果存在相同id,可能会有问题.
    * 获取dom 元素时,最好限定在事件参数view范围获取.
    * @param {*} p 页面实例
+   * @param {string} lastHash 前hash
    */
-  onShow(p) {
+  onShow(p, lastHash) {
     try {
       if (!p) return;
 
@@ -1086,7 +1149,7 @@ class Router {
           //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
           $.nextTick(() => {
             try {
-            p.ready(v, p.param, this.backed);
+              p.ready(v, p.param, this.backed, lastHash);
             } catch (exp) {
               console.log('page ready exp!', {exp});
             }
@@ -1104,9 +1167,9 @@ class Router {
       if (p.back && this.backed) {
         $.nextTick(() => {
           try {
-          if (v.class('page-content')?.dom?.scrollTop)
-            v.class('page-content').dom.scrollTop = p.scrollTop ?? 0;
-          p.back(v, p.param);
+            if (v.class('page-content')?.dom?.scrollTop)
+              v.class('page-content').dom.scrollTop = p.scrollTop ?? 0;
+            p.back(v, p.param, lastHash);
           } catch (exp) {
             console.log('page back exp!', {exp});
           }
@@ -1117,7 +1180,7 @@ class Router {
       if (p.show && !this.backed) {
         $.nextTick(() => {
           try {
-          p.show(v, p.param);
+            p.show(v, p.param, lastHash);
           } catch (exp) {
             console.log('page show exp!', {exp});
           }
@@ -1161,63 +1224,75 @@ class Router {
    * 如果已经是当前显示的块，那么不做任何处理；
    * 如果没对应的块，忽略。
    * @param {Router} p 待切换的页面实例
-   * @param {String} back 是否返回
+   * @param {boolean} back 是否返回
+   * @param {string} lastHash 前hash
    * @private
    */
-  switchPage(p, back) {
+  switchPage(p, back, lastHash) {
     if (!p) return;
-
-    let fp = null;
-    let from = this.getCurrentPage(); // 当前显示页面
-    if (from) {
-      from = $(from); // $(from); lastp.view;
-      // master page not hide!
-      if (from.hasClass('page-master')) from = null;
-      else fp = this.vps.get(from.dom);
-    }
-
-    let to = $.id(p.id);
-    if (to) {
-      to = p.view; // $(to); ready/show 在页面实例view上修改
-      // master page not hide!
-      if (to.hasClass('page-master')) from = null;
-    }
-
-    // 如果已经是当前页，不做任何处理
-    if (from && to && from.dom === to.dom) return;
-
-    const dir = back ? 'backward' : 'forward';
-    if (from || to) {
-      // 页面切换动画
-      if (from && to) {
-        // 开机splash不需要动画
-        if (this.noAni) {
-          this.noAni = false;
-          this.hidePage(fp, from);
-          this.onShow(p); // ready
-          this.showPage(p);
-        } else {
-          // 需要动画，先触发show事件
-          this.onShow(p); // ready 提前处理，切换效果好
-          this.aniPage(from, to, dir, () => {
-            // 动画结束
-            this.hidePage(fp, from);
-            this.showPage(p);
-          });
-        }
-      } else if (from) {
-        this.hidePage(fp, from);
-      } else if (to) {
-        this.onShow(p); // ready
-        this.showPage(p);
+    try {
+      let fp = null;
+      let from = this.getCurrentPage(); // 当前显示页面
+      if (from) {
+        from = $(from); // $(from); lastp.view;
+        // master page not hide!
+        if (from.hasClass('page-master')) from = null;
+        else fp = this.vps.get(from.dom);
       }
+
+      let to = $.id(p.id);
+      if (to) {
+        to = p.view; // $(to); ready/show 在页面实例view上修改
+        // master page not hide!
+        if (to.hasClass('page-master')) from = null;
+      }
+
+      // 如果已经是当前页，不做任何处理
+      if (from && to && from.dom === to.dom) return;
+
+      const dir = back ? 'backward' : 'forward';
+      if (from || to) {
+        // 页面切换动画
+        if (from && to) {
+          // 开机splash不需要动画
+          if (this.noAni) {
+            this.noAni = false;
+            this.hidePage(fp, from);
+            this.onShow(p, lastHash); // ready
+            this.showPage(p);
+          } else {
+            // 需要动画，先触发show事件
+            this.onShow(p, lastHash); // ready 提前处理，切换效果好
+            this.aniPage(from, to, dir, () => {
+              // 动画结束
+              this.hidePage(fp, from);
+              this.showPage(p);
+            });
+          }
+        } else if (from) {
+          this.hidePage(fp, from);
+        } else if (to) {
+          this.onShow(p, lastHash); // ready
+          this.showPage(p);
+        }
+      }
+      setTitle(this.page.title);
+      // this.pushNewState('#' + sectionId, sectionId);
+
+      // 安全原因，删除页面传递参数
+      if (this.hash.length > 0) {
+        const [hash] = this.hash.slice(-1);
+        if (this.param?.[hash]) delete this.param[hash];
+        if (this.refresh?.[hash]) delete this.param[hash];
+      }
+    } catch (e) {
+      console.error(`switchPage exp:${e.message}`);
     }
-    setTitle(this.page.title);
-    // this.pushNewState('#' + sectionId, sectionId);
   }
 
   /**
    * 页面Page实例事件触发，f7 UI组件需要
+   * @param {string} ev 事件：init show back hide
    * @param {Page} p 页面实例
    * @param {Dom} v 视图
    * @private
@@ -1232,7 +1307,8 @@ class Router {
       const camelName = `page${ev[0].toUpperCase() + ev.slice(1, ev.length)}`;
       const colonName = `page:${ev.toLowerCase()}`;
 
-      const page = {$el: v, el: v.dom};
+      // 满足 f7 组件参数要求
+      const data = {$el: v, el: v.dom};
       // if (callback === 'beforeRemove' && v[0].f7Page) {
       //   page = $.extend(v[0].f7Page, {from, to, position: from});
       // } else {
@@ -1260,20 +1336,23 @@ class Router {
         // attachEvents();
 
         if (v[0].f7PageInitialized) {
-          v.trigger('page:reinit', page);
-          r.emit('pageReinit', page);
+          v.trigger('page:reinit', data);
+          r.app.emit('pageReinit', data);
           return;
         }
         v[0].f7PageInitialized = true;
+
+        // 触发当前页面Dom事件，不存在安全问题，$el.on(ev, et=> {})
+        v.trigger(colonName, data);
+        // 触发全局应用页面事件，通过 app.on 侦听
+        r.app.emit(`local::${camelName}`, data);
       }
 
-      // 触发当前页面Dom事件，不存在安全问题
-      v.trigger(colonName, page);
-
-      // 触发全局应用页面事件
-      // 存在安全问题！！！
-      r.app.emit(`local::${camelName}`, page);
-      // p.emit(camelName, page); // Page 实例向上传递事件到App实例
+      // page 中已触发
+      // Page 实例向上传递事件到App实例，
+      // if (['hide', 'show', 'back'].includes(ev)) p.emit(camelName, p.path);
+      // 触发页面事件，通过 page.on 侦听
+      // p.emit(`local::${ev}`, data);
     } catch (ex) {
       console.error(`pageEvent exp:${ex.message}`);
     }
@@ -1299,7 +1378,11 @@ function getHash(url) {
   return pos !== -1 ? url.substring(pos + 1) : ''; // ??? '/'
 }
 
-// google 支持 #! 格式，百度浏览器修改hash无效
+/**
+ * 设置浏览器 hash，触发 hash change 事件
+ * google 支持 #! 格式，百度浏览器修改hash无效
+ * @param {string} url
+ */
 function setHash(url) {
   let hash = url;
   if (url[0] !== '!') hash = `!${url}`;
@@ -1359,4 +1442,6 @@ $.back = (param, refresh = false) => {
   $.router.back(param, refresh);
 };
 
-export {Router};
+Router.default = Router;
+
+export default Router;

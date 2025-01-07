@@ -1,5 +1,5 @@
 if (process.env.NODE_ENV === 'production') {
-  module.exports = require('./dist/router.common.min.js')
+  module.exports = require('./dist/router.cmn.js')
 } else {
-  module.exports = require('./dist/router.common.js')
+  module.exports = require('./dist/router.cmn.js')
 }
