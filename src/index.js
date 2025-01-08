@@ -7,6 +7,12 @@
 /* global
  */
 
+/** {*} */
+// @ts-ignore
+const $ = window.$
+/** {*} */
+// @ts-ignore
+const __m__ = window.__m__
 let location = window.location // eslint-disable-line
 
 const CFG = {
@@ -67,109 +73,98 @@ class Router {
   _index = 1
 
   // container element
+  /** @type {*} */
   view = null
 
   // 缓存所有app实例
-  as = {}
+  /** @type {*} */
+  apps = {}
   // 缓存所有page实例
   ps = {}
+  /** @type {string[]} */
   ids = [] // 页面id
   // 缓存所有Page中的dom视图，不是$dom
   vs = {}
   vps = new Map() // dom page 映射，通过 dom对象查找page实例！
 
   url = '' // 当前路由所处的网址，实际上是hash部分！
-  hash = [] // 带参数的完整hash数组，回退pop，前进push
 
   // start route config
-  splash = false
+  // splash 开机画面不需要 动画
+  splash = true
+
+  /** @type {*} */
+  app
+  owner = ''
+  appName = ''
+  path = '' // 当前应用路径，去掉参数部分，不包括页面文件，a/b/c/1.html?x=1 为：c
+  lastOwner = '' // 上一个应用所有者
+  lastName = '' // 上一个应用名称
+  lastPath = '' // 上一个应用路径
+  /** @type {*} */
+  param = {} // 页面传递参数，按hash存储的kv，避免连续go时param丢失！
+  /** @type {*} */
+  refresh = {}
+  /** @type {*} */
+  page = null // 当前 page 实例
+
+  /** @type {string[]} */
+  hash = [] // 带参数的完整hash数组，回退pop，前进push 记录应用 导航路径，go 增加、back 减少
+  lastHash = '' // 前hash
+  nextHash = '' // 需到达的 hash
+
+  backed = false // 是否为返回
+  init = true // 第一个应用，需初始化
 
   /**
    * constructor
-   * @param opts
+   * @param {*} opts
    */
   constructor(opts) {
     // if (Router.instance) {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
     // }
     // Router.instance = this; // 是否控制为单例？
-
-    this.opt = {...def, ...opts}
-    const {opt} = this
+    const _ = this
+    _.opt = {...def, ...opts}
+    const {opt} = _
     // this.app = this.opt.app;
     // this.app.router = this;
-    this.view = $(`#${this.opt.view}`)
-    /** @type {*} */
-    this.param = {} // 页面传递参数，按hash存储的kv，避免连续go时param丢失！
-    /** @type {*} */
-    this.refresh = {}
-    this.page = null // 当前 page 实例
-    this.pages = opt.pages // vite 调试需要
-    if (opt.pages) this.vite = true // vite 调试模式
-    this.lastPage = null // 上一个 page 实例
-    this.lastApp = null // 上一个应用实例
+    _.view = $(`#${_.opt.view}`)
+    _.pages = opt.pages // vite 调试需要
+    if (opt.pages) _.vite = true // vite 调试模式
+    _.lastPage = null // 上一个 page 实例
+    _.lastApp = null // 上一个应用实例
 
     // 方便全局访问
-    $.view = this.view // $化视图
-    $.router = this // 全局路由
+    $.view = _.view // $化视图
+    $.router = _ // 全局路由
 
-    // splash 开机画面不需要 动画
-    this.splash = true
-
-    this.lastHash = '' // 前hash
-    this.hash = [] // hash数组，记录应用 导航路径，go 增加、back 减少
-    this.nextHash = '' // 需到达的 hash
-
-    this.lastOwner = '' // 上一个应用所有者
-    this.lastName = '' // 上一个应用名称
-    this.lastPath = '' // 上一个应用路径
-
-    this.backed = false // 是否为返回
-
-    this.owner = opt.owner // 当前应用所有者
-    this.appName = opt.name // 当前应用名称
-    this.path = '' // 当前应用路径，去掉参数部分，不包括页面文件，a/b/c/1.html?x=1 为：c
+    // 创建路由时，不创建应用，通过 hash切换，动态加载应用
+    // const app = await this.createApp(opt.owner, opt.name)
+    // this.owner = opt.owner // 当前应用所有者
+    // this.appName = opt.name // 当前应用名称
     // 当前应用实例
     // 创建路由时，需创建启动 app，每个应用都可能成为wia store 入口
-    let appCls = null
-    if (this.opt.mode === 'local')
-      // eslint-disable-next-line
-      appCls = this.pages?.['./src/index'] ?? __webpack_require__('./src/index.js').default
-    // eslint-disable-line
-    else appCls = __m__(`./${this.owner}/${this.name}/src/index.js`) // eslint-disable-line
 
-    // eslint-disable-next-line
-    const app = new appCls({
-      // App root element
-      el: opt.el || opt.root,
-      theme: opt.theme ?? 'auto',
-      owner: opt.owner,
-      name: opt.name,
-      init: true, // 启动wia应用时，创建路由，同时创建app
-    })
+    // 切换到当前应用
+    // this.app = app
+    // $.app = this.app
+    // if (app.show)
+    //   // 重新绑定事件
+    //   $.nextTick(() => {
+    //     let {hash} = window.location
+    //     if (hash.startsWith('#')) hash = hash.substr(1)
+    //     if (hash.startsWith('!')) hash = hash.substr(1)
+    //     hash = hash.indexOf('?') > -1 ? hash.replace(/\?\S*/, '') : hash
 
-    this.app = app
-    $.app = this.app
-    if (app.ready)
-      // 重新绑定事件
-      $.nextTick(() => {
-        app.ready()
-      })
+    //     // const param = $.urlParam();
+    //     const param = $.urlParam()
+    //     app.show(hash, param)
+    //     // 抑制页面空 href 刷新页面行为
+    //     $.view.qus('a[href=""]').attr('href', 'javascript:;')
+    //   })
 
-    if (app.show)
-      // 重新绑定事件
-      $.nextTick(() => {
-        let {hash} = window.location
-        if (hash.startsWith('#')) hash = hash.substr(1)
-        if (hash.startsWith('!')) hash = hash.substr(1)
-        hash = hash.indexOf('?') > -1 ? hash.replace(/\?\S*/, '') : hash
-
-        // const param = $.urlParam();
-        const param = $.urlParam()
-        app.show(hash, param)
-        // 抑制页面空 href 刷新页面行为
-        $.view.qus('a[href=""]').attr('href', 'javascript:;')
-      })
     // why not `history.pushState`? see https://github.com/weui/weui/issues/26, Router in wechat webview
     // pushState 不支持 微信侧滑返回
     // 不带 hash 到 hash,返回时, 不能触发该事件,因此一开始就要设置 hash,否则无法回到 首页!
@@ -186,7 +181,7 @@ class Router {
         let to = newHash || 'index'
         // debugger;
         // 将不合规范url修改为规范url
-        to = this.repairUrl(to)
+        to = _.repairUrl(to)
 
         // 如不一致，重设 hash
         if (newHash !== to) {
@@ -202,7 +197,7 @@ class Router {
 
         // 无变化，页面刷新
         if (newHash === oldHash) {
-          this.nextHash = ''
+          _.nextHash = ''
           return
         }
 
@@ -210,23 +205,23 @@ class Router {
         // this.lastHash = oldHash;
         // this.hash = newHash;
 
-        this.backed = false // 是否返回
-        this.hash = this.hash || []
-        const hs = this.hash
+        _.backed = false // 是否返回
+        _.hash = _.hash || []
+        const hs = _.hash
         const hslen = hs.length
-        this.lastHash = hslen > 0 ? hs[hslen - 1] : ''
+        _.lastHash = hslen > 0 ? hs[hslen - 1] : ''
 
         // 新的 hash
         if (hslen > 1 && hs[hslen - 2] === newHash) {
           // 回退
-          this.backed = true
-          console.log(`hash:${newHash} <- ${this.lastHash}`)
+          _.backed = true
+          console.log(`hash:${newHash} <- ${_.lastHash}`)
           // 删除 最后 hash
           hs.pop()
-        } else if (this.lastHash === newHash)
-          console.log(`hash: -- ${newHash}`) // same
-        else if (this.lastHash !== newHash) {
-          console.log(`hash:${this.lastHash} -> ${newHash}`)
+        } else if (_.lastHash === newHash)
+          console.log(`hash: == ${newHash}`) // same
+        else if (_.lastHash !== newHash) {
+          console.log(`hash:${_.lastHash} -> ${newHash}`)
           hs.push(newHash)
         }
 
@@ -234,19 +229,40 @@ class Router {
         // this.to(hash, state._index <= this._index);
         ;[to] = hs.slice(-1)
         // console.log('hashchange', {to});
-        this.routeTo(to, this.param[to], this.refresh[to], this.lastHash) //  , oldHash);
+        _.routeTo(to, this.param[to], this.refresh[to], this.lastHash) //  , oldHash);
 
-        this.nextHash = ''
+        _.nextHash = ''
       },
       false
     )
+
+    // 当前 hash
+    const hash = getHash()
+    // 进入启动应用
+    if (hash) {
+      console.log(`router start -> ${hash}`)
+      // 将不合规范url修改为规范url
+      const to = _.repairUrl(hash)
+      if (hash !== to) setHash(to)
+      else {
+        _.hash.push(to)
+
+        // const state = history.state || {};
+        // this.to(hash, state._index <= this._index);[to] = hs.slice(-1)
+        // console.log('hashchange', {to});
+        const param = $.urlParam()
+        _.routeTo(to, param, true)
+
+        _.nextHash = ''
+      }
+    }
   }
 
   /**
    * 导航并传递对象参数, 更改当前路由 为 指定 路由，hash 直接导航只能传字符参数,不能传对象参数
-   * @param url hash
-   * @param param 对象参数 {name: val}，不是字符串！
-   * @param refresh 是否强制刷新, 默认跳转时，如果目的页面已经缓存，则直接显示，触发show事件，不会触发load和ready，
+   * @param {string} url hash
+   * @param {object} param 对象参数 {name: val}，不是字符串！
+   * @param {boolean} [refresh] 是否强制刷新, 默认跳转时，如果目的页面已经缓存，则直接显示，触发show事件，不会触发load和ready，
    * 如果设置为true，则跳转时，如果有缓存，则删除缓存，重新 触发 load、ready
    */
   go(url, param = null, refresh = false) {
@@ -260,7 +276,6 @@ class Router {
      r.refresh = refresh;
      }
      */
-    // debugger;
     // 默认跳转到首页
     url = url || 'index'
     url = this.repairUrl(url)
@@ -286,22 +301,24 @@ class Router {
   /**
    * 全屏模式不能跨网页，因此不同应用只能用不同hash区分
    * 路由仅接受绝对hash，自动将相对path转换为绝对hash
+   * http://wia.pub/#codecamp -> http://wia.pub/#/nuoya/camp  快链
+   * http://wia.pub/#/nuoya/camp -> http://wia.pub/#/nuoya/camp/course/
    * $.go('b') 转换为 $.go('/star/etrip/b')
    * 实际网址 https://wia.pub/#!/ower/name/b
    * $.go('/') 切换到当前路径的根路径：wia.pub/#!/ower/name，
-   * 在网址上输入 https://wia.pub/#!b
-   * 也会根据当前网址补全路径，自动切换到 https://wia.pub/#!/ower/name/b
+   * 在网址上输入 https://wia.pub/#b -> https://wia.pub/#/ower/name/b 当前应用自动补全
    * @param {*} url
    */
   repairUrl(url) {
     let R = ''
+    const _ = this
 
     if (!url) return ''
-
     try {
       R = url
       if (url === '/') R = '/'
-      else if (url === '~') R = `/${this.owner}/${this.appName}/index`
+      else if (url === 'codecamp') R = '/nuoya/camp/course/index'
+      else if (url === '~') R = `/${_.owner}/${_.appName}/index`
       else if (url.startsWith('../')) {
         // 上一级路径
         let {path} = this
@@ -315,15 +332,18 @@ class Router {
 
         if (path === '') R = `/${this.owner}/${this.appName}/${url.substr(3)}`
         else R = `/${this.owner}/${this.appName}/${path}/${url.substr(3)}`
-      } else if (url.startsWith('./') && this.path) {
+      } else if (url.startsWith('./') && _.path) {
         // 当前路径
-        let {path} = this
-        const pos = this.path.lastIndexOf('/')
+        let {path} = _
+        const pos = _.path.lastIndexOf('/')
         if (pos > -1) {
           path = path.substring(0, pos)
-          R = `/${this.owner}/${this.appName}/${path}/${url.substr(2)}`
-        } else R = `/${this.owner}/${this.appName}/${url.substr(2)}`
-      } else if (!url.startsWith('/')) R = `/${this.owner}/${this.appName}/${url}`
+          R = `/${_.owner}/${_.appName}/${path}/${url.substr(2)}`
+        } else R = `/${_.owner}/${_.appName}/${url.substr(2)}`
+      } else if (!url.startsWith('/')) {
+        if (_.owner && _.appName) R = `/${_.owner}/${_.appName}/${url}`
+        else R = `/${url}`
+      }
       // 绝对路径 /ower/app?a=1 => /ower/app/index?a=1
       // /ower/app => /ower/app/index
       // /ower/app/ => /ower/app/index
@@ -380,14 +400,15 @@ class Router {
   /**
    * 动态下载页面js，里面包括js、html和css
    * 本地调试，则动态从本地下载html、css
-   * @param {*} url 加载页面网址，格式：/ower/appname/page
-   * 返回 promise
+   * @param {string} url 加载页面网址，格式：/ower/appname/page
+   * @param {*} param
+   * @returns {Promise<Object>}
    */
-  load(url, param) {
-    let R = null
+  async load(url, param) {
+    let R
+    const _ = this
 
     try {
-      R = new Promise((res, rej) => {
         // console.log(`router load url:${url}`);
         // const pos = path.lastIndexOf('/');
         // const name = path.substr(pos + 1);
@@ -404,18 +425,30 @@ class Router {
         console.log('load', {owner, name, path})
 
         // 加载页面必须 owner、name 和 page
-        if (!owner || !name || !path) res('')
+      if (!owner || !name || !path) throw new Error('need owner|name|path')
+
+      let app = _.findApp(owner, name)
+      // 应用不存在，创建并切换应用，由应用show完成后续路由（身份识别与登录等）
+      if (!app) {
+        await _.switchApp(owner, name, path)
+        // 加载应用时，需在显示事件中完成应用内路由，避免越权
+        // _.showApp(app)
+
+        return
+      }
+
+
+      if (this.opt.mode === 'local') {
         // 本地调试状态，直接获取本地页面
-        else if (this.opt.mode === 'local') {
           let appCss = null
 
           // 静态资源浏览器有缓存,增加日期时标,强制按日期刷新!
           const pgHtml = new Promise((resHtml, rejHtml) => {
             const pgurl = `${this.opt.local}/page/${path}.html?v=${Date.now()}`
-            // console.log('router load html:', {url: pgurl});
+          // console.log('router load html:', {url: pgurl})
             $.get(pgurl).then(
               rs => {
-                // 页面获取成功
+              // 页面获取成功，vite 需使用 this.pages才生效
                 // debugger;
                 // console.log('router load html:', {url: pgurl, rs});
                 // 获得页面模块类，并创建页面对象实例
@@ -458,41 +491,37 @@ class Router {
                   // console.log('router load css:', {url: pgurl, rs});
                   resCss(rs)
                 },
-                err => resCss('') //rejCss(err)
+              err => resCss('') // rejCss(err) css 可选
               )
             }
           })
 
-          Promise.all([pgHtml, pgCss])
-            .then(rs => {
+        const rs = await Promise.all([pgHtml, pgCss])
               const p = rs[0]
               p.css = rs[1] // eslint-disable-line
               // 触发 load 事件
               if (p.load) p.load(param)
 
-              res(p)
-            })
-            .catch(err => rej(err))
+        R = p
         } else {
-          // debugger;
-
           if (this.opt.cos.includes('localhost:'))
             url = `${this.opt.cos}/page/${path}.js?v=${Date.now()}`
           else url = `${this.opt.cos}/${owner}/${name}/page/${path}.js?v=${Date.now()}`
 
-          // console.log('router load page:', {url});
+        console.log('router load page:', {url})
 
-          $.get(url).then(
-            r => {
+        const r = await $.get(url)
               // debugger;
               // console.log(r);
               if (r && r.js) {
                 const k = Object.keys(r.js)[0]
                 const code = r.js[k]
-                $.M.add(r.js)
+          $.M.add(r.js) // 模块加入到缓存数组
                 // console.log(r.js);
                 const P = $.M(k) // 加载该模块
-                const p = new P.default() // eslint-disable-line
+          const Cls = new P.default() // eslint-disable-line
+          // 创建页面实例
+          const p = new Cls({app: _.app}) // eslint-disable-line
                 p.html = r.html
                 p.css = r.css
                 p.param = param
@@ -503,23 +532,102 @@ class Router {
                 p.url = `/${owner}/${name}/${path}`
                 p.path = path
 
-                this.cachePage(p)
+          _.cachePage(p)
 
                 // 触发 load 事件
                 if (p.load) p.load(param)
 
-                res(p)
+          R = p
               }
-            },
-            err => rej(err)
-          )
         }
-      })
     } catch (e) {
       console.error(`load exp:${e.message}`)
     }
 
     return R
+  }
+
+  /**
+   * 创建应用
+   * @param {string} owner 所有者
+   * @param {string} name 应用名称
+   * @returns {Promise <*>}
+   */
+  async createApp(owner, name) {
+    let R
+    const _ = this
+    const {opt} = _
+
+    try {
+      let app = _.findApp(owner, name)
+      if (app) return app
+
+          // 需创建应用
+            let appCls = null
+      if (_.opt.mode === 'local')
+              // eslint-disable-next-line
+        appCls = _.pages?.['./src/index'] ?? __webpack_require__('./src/index.js').default
+            // eslint-disable-line
+      else appCls = __m__(`./${_.owner}/${_.name}/src/index.js`) // eslint-disable-line
+
+            // eslint-disable-next-line
+            app = new appCls({
+        el: opt.el || opt.root,
+        init: _.init, // 启动wia应用时，创建路由，同时创建app
+        owner,
+        name,
+            })
+
+      if (app) _.init = false // 第一个应用需初始化
+
+      // 缓存应用
+      _.apps[`${owner}.${name}`] = app
+
+      // _.lastPage = null // 切换 app
+      // _.page = null
+      // $.lastPage = null
+      // $.page = null
+
+            if (app.ready)
+              // 重新绑定事件
+              $.nextTick(() => {
+                app.ready()
+              })
+
+      R = app
+    } catch (e) {
+      console.log('createApp err:', e.message)
+          }
+
+    return R
+  }
+
+  /**
+   * 触发应用show事件函数
+   * @param {*} app
+   */
+  showApp(app) {
+    const _ = this
+
+    try {
+      if (!app?.show) return
+
+      // 加载应用时，需在显示事件中完成应用内路由，避免越权
+            $.nextTick(() => {
+        let {hash} = window.location
+        if (hash.startsWith('#')) hash = hash.substring(1)
+        if (hash.startsWith('!')) hash = hash.substring(1)
+        // const param = $.urlParam();
+        const param = $.urlParam(hash)
+        hash = hash.indexOf('?') > -1 ? hash.replace(/\?\S*/, '') : hash
+
+        app.show(hash, param)
+              // 抑制页面空 href 刷新页面行为
+              $.view.qus('a[href=""]').attr('href', 'javascript:;')
+            })
+    } catch (e) {
+      console.log('switchApp err:', e.message)
+    }
   }
 
   /**
@@ -529,88 +637,66 @@ class Router {
    * @param {*} path 应用路径
    * returns 是否成功
    */
-  switchApp(owner, name, path) {
-    if (owner === this.owner && name === this.appName) {
-      if (path !== this.path) this.path = path
-      return Promise.resolve(true)
-    }
+  async switchApp(owner, name, path) {
+    let R = false
+    const _ = this
+    const {opt} = _
 
-    // 切换需获取新应用token
-    this.getToken(owner, name)
-      .then(tk => {
-        if (tk) {
-          // 应用切换处理
-          if (owner) {
-            if (this.owner !== this.lastOwner) this.lastOwner = this.owner
-            this.owner = owner
-          }
-
-          if (name) {
-            if (this.appName !== this.lastName) this.lastName = this.appName
-            this.appName = name
-          }
-
-          if (path) {
-            if (this.path !== this.lastPath) this.lastPath = this.path
-            this.path = path
-          }
-
-          let app = this.findApp(owner, name)
-          // 需创建应用
-          if (!app) {
-            let appCls = null
-            if (this.opt.mode === 'local')
-              // eslint-disable-next-line
-              appCls = this.pages?.['./src/index'] ?? __webpack_require__('./src/index.js').default
-            // eslint-disable-line
-            else appCls = __m__(`./${this.owner}/${this.name}/src/index.js`) // eslint-disable-line
-
-            // eslint-disable-next-line
-            app = new appCls({
-              // App root element
-              root: this.opt.root,
-              owner: this.opt.owner,
-              name: this.opt.name,
-              init: false,
-            })
-
-            this.as[`${owner}.${name}`] = app
-
-            this.lastPage = null // 切换 app
-            this.page = null
-            $.lastPage = null
-            $.page = null
-
-            if (app.ready)
-              // 重新绑定事件
-              $.nextTick(() => {
-                app.ready()
-              })
-          }
-
-          this.lastApp = this.app
-          if (this.lastApp.hide)
-            $.nextTick(() => {
-              this.lastApp.hide()
-            })
-
-          this.app = app
-          if (app.show)
-            $.nextTick(() => {
-              app.show()
-              // 抑制页面空 href 刷新页面行为
-              $.view.qus('a[href=""]').attr('href', 'javascript:;')
-            })
-
+    try {
+      // 无需切换
+      if (owner === _.owner && name === _.appName) {
+        if (path !== _.path) _.path = path
           return true
         }
 
-        return false
+      // ! 切换需获取新应用token，暂时屏蔽
+      const tk = true // await this.getToken(owner, name)
+
+      if (tk) {
+        // 应用切换处理
+        if (owner) {
+          if (_.owner !== _.lastOwner) _.lastOwner = _.owner
+          _.owner = owner
+        }
+
+        if (name) {
+          if (_.appName !== _.lastName) _.lastName = _.appName
+          _.appName = name
+        }
+
+        if (path) {
+          if (_.path !== _.lastPath) _.lastPath = _.path
+          _.path = path
+        }
+
+        let app = _.findApp(owner, name)
+        if (!app) app = await _.createApp(owner, name)
+
+        _.lastApp = _.app
+        if (_.lastApp?.hide)
+          $.nextTick(() => {
+            _.lastApp.hide()
       })
-      .catch(err => {
-        console.log('switchApp err:', err)
-        return false
-      })
+
+        _.app = app
+        $.app = app
+
+        // 切换 app，清理上一个应用的缓存参数，避免数据泄露
+        _.lastPage = null
+        _.page = null
+        $.lastPage = null
+        $.page = null
+
+        // 加载应用时，需在显示事件中完成应用内路由，避免越权
+        _.showApp(app)
+
+        R = true
+      }
+    } catch (e) {
+      console.log('switchApp err:', e.message)
+    }
+
+    return R
   }
 
   /**
@@ -755,7 +841,7 @@ class Router {
     refresh = refresh ?? false
     console.log('routeTo ', {url, param, refresh})
 
-    // 已缓存页面
+    // 已缓存页面，直接跳转
     let p = this.findPage(url, param, refresh)
     if (p) this.to(p, refresh, lastHash)
     else {
@@ -928,11 +1014,11 @@ class Router {
    * 路由仅接受绝对path，通过url获取绝对path、 search、 param
    * 将相对path 转换为绝对path
    * 将?后面的内容从url剥离，并转换为参数，？需包含在hash中，也就是 # 之后
-   * 比如当前hash为 '#!a' 切换到 '#!b'
+   * 比如当前hash为 '#a' 切换到 '#b'
    * $.go('b')
-   * 网址上输入 https://wia.pub/#!/ower/name
-   * 默认到首页 https://wia.pub/#!/ower/bame/home
-   * @param {*} url
+   * 网址上输入 https://wia.pub/#/ower/name
+   * 默认到首页 https://wia.pub/#/ower/bame/home
+   * @param {string} url
    */
   parseUrl(url) {
     const R = {url}
@@ -1003,14 +1089,16 @@ class Router {
 
   /**
    * 从缓存中查找应用，避免重新加载
-   * @param {String} url /ower/name/page
-   * @param {Object} param
+   * @param {string} owner /ower/name/page
+   * @param {string} name
+   * @param {*} [param]
+   * @param {boolean} [reload]
    * @returns {Object}
    */
-  findApp(owner, name, param, reload) {
+  findApp(owner, name, param, reload = false) {
     let R = null
 
-    const app = this.as[`${owner}.${name}`]
+    const app = this.apps[`${owner}.${name}`]
     if (!app) {
       console.log('findApp not find!', {owner, name})
     } else {
@@ -1364,10 +1452,15 @@ class Router {
  * 如果没有则返回字符串
  * 如: http://example.com/path/?query=d#123 => 123
  *
- * @param {String} url url
- * @returns {String}
+ * @param {String} [url] - url
+ * @returns {string}
  */
 function getHash(url) {
+  // let {hash} = window.location
+  //     if (hash.startsWith('#')) hash = hash.substr(1)
+  //     if (hash.startsWith('!')) hash = hash.substr(1)
+  //     hash = hash.indexOf('?') > -1 ? hash.replace(/\?\S*/, '') : hash
+
   if (!url) url = location.href
 
   let pos = url.indexOf('#!')
@@ -1384,7 +1477,8 @@ function getHash(url) {
  */
 function setHash(url) {
   let hash = url
-  if (url[0] !== '!') hash = `!${url}`
+  // if (url[0] !== '!') hash = `!${url}` // 不加 !
+
   // console.log('setHash...', {url, href: location.href, hash: location.hash});
   location.hash = hash // modify invalid
   // $.nextTick(() => (location.hash = hash));

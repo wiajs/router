@@ -1,5 +1,15 @@
 # Change Log
 
+## 2025-01-08
+
+- 路由创建时不加载应用
+- 增加快链
+- 去掉 hash ! 号
+- load 时，如果应用不存在，切换应用，路由交给 应用 show方法处理
+- 使用 async 
+- 增加 createApp
+- 增加 showApp
+
 ## 2022-01-06
 
 ### 并发 go param bug 修正
