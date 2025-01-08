@@ -1,7 +1,7 @@
 module.exports = {
   tabWidth: 2, // 使用 2 个空格缩进
   useTabs: false, // 不使用缩进符，而使用空格
-  semi: true, // 行尾需要有分号
+  semi: false, // 行尾需要有分号
   singleQuote: true, // 使用单引号
   bracketSpacing: false, // 大括号内的首尾需要空格
   trailingComma: 'es5', // 末尾是否需要逗号
