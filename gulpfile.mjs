@@ -1,8 +1,8 @@
 /* eslint-disable import/no-extraneous-dependencies */
-const gulp = require('gulp');
-const fs = require('fs-extra');
-const build = require('./script/build');
-const configs = require('./script/config');
+import gulp from 'gulp'
+import fs from 'fs-extra'
+import { build } from './script/build.mjs'
+import configs from './script/config.mjs'
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const src = './src';
@@ -15,7 +15,7 @@ if (!fs.existsSync(out)) {
 }
 
 /**
- * É¾³ýÒÑÓÐ·¢²¼ÎÄ¼þ£¬È«²¿ÖØÐÂÉú³É
+ * åˆ é™¤å·²æœ‰å‘å¸ƒæ–‡ä»¶ï¼Œå…¨éƒ¨é‡æ–°ç”Ÿæˆ
  * @returns
  */
 async function clean(cb) {
@@ -26,7 +26,7 @@ async function clean(cb) {
 }
 
 /**
- * Í¬Ê±Éú³Éumd¡¢cjs¡¢esm ÈýÖÖ¸ñÊ½Êä³öÎÄ¼þ
+ * åŒæ—¶ç”Ÿæˆumdã€cjsã€esm ä¸‰ç§æ ¼å¼è¾“å‡ºæ–‡ä»¶
  */
 const buildAll = gulp.series(clean, cb => {
   console.log('start build ...');
@@ -34,7 +34,7 @@ const buildAll = gulp.series(clean, cb => {
 });
 
 /**
- * ½öÉú³Écjs ¸ñÊ½
+ * ä»…ç”Ÿæˆcjs æ ¼å¼
  */
 gulp.task('cjs', cb => {
   console.log('dev cjs...');
@@ -44,7 +44,7 @@ gulp.task('cjs', cb => {
 });
 
 /**
- * ½öÉú³É esm ¸ñÊ½
+ * ä»…ç”Ÿæˆ esm æ ¼å¼
  */
 gulp.task('esm', cb => {
   console.log('dev esm...');
@@ -54,7 +54,7 @@ gulp.task('esm', cb => {
 });
 
 /**
- * ½öÉú³É umd ¸ñÊ½
+ * ä»…ç”Ÿæˆ umd æ ¼å¼
  */
 gulp.task('umd', cb => {
   console.log('dev umd...');
@@ -67,5 +67,5 @@ gulp.task('watch', () => {
   gulp.watch(`${src}/*.js`, gulp.series([buildAll]));
 });
 
-module.default = buildAll;
-module.exports = {build: buildAll};
+export default buildAll
+export { buildAll as build }

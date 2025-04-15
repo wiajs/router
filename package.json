@@ -1,14 +1,22 @@
 {
   "name": "@wiajs/router",
-  "version": "1.0.15",
+  "version": "1.0.17",
   "description": "Official router for wia.js",
-  "main": "./dist/router.cmn.js",
-	"module": "./dist/router.esm.js",
-  "types": "./dist/router.d.ts",
+  "main": "./dist/router.cjs",
+	"module": "./dist/router.mjs",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/router.cjs",
+      "import": "./dist/router.mjs",
+      "default": "./dist/router.mjs",
+      "types": "./types/index.d.ts"
+    }
+  },
   "scripts": {
-    "build": "cross-env NODE_ENV=production gulp build",
-    "build-dev": "cross-env NODE_ENV=development gulp build",
-    "dev": "cross-env NODE_ENV=development gulp cjs",
+    "dev": "cross-env NODE_ENV=development gulp build -f gulpfile.mjs",
+    "build": "cross-env NODE_ENV=production gulp build -f gulpfile.mjs",
+    "lib": "swc --config-file ./.swcrc ./src -w -d lib",
     "dev:umd": "cross-env NODE_ENV=development gulp umd",
     "dev:esm": "cross-env NODE_ENV=development gulp esm",
     "release": "bash release.sh"    
@@ -39,8 +47,8 @@
     "@rollup/plugin-node-resolve": "^15.1.0",
     "@rollup/plugin-replace": "^5.0.2",
     "@rollup/plugin-terser": "^0.4.3",
-    "@wiajs/dom": "^1.0.1",
-    "@wiajs/core": "^1.0.1",
+    "@wiajs/dom": "^1.6.1",
+    "@wiajs/core": "^1.1.28",
     "cross-env": "^7.0.3",
     "debug": "^4.3.4",
     "fs-extra": "^11.1.1",

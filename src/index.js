@@ -1,7 +1,7 @@
 /**
  * wia 前端路由
  * First Version Released on: September 13,2016
- * Copyright © 2014-2021 Sibyl Yu
+ * Copyright © 2014 Sibyl Yu
  */
 
 /* global
