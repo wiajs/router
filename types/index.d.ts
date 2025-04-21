@@ -1,0 +1,65 @@
+export default Router;
+declare class Router {
+    constructor(opts: any);
+    _index: number;
+    view: any;
+    apps: any;
+    ps: {};
+    ids: string[];
+    vs: {};
+    vps: Map<any, any>;
+    url: string;
+    splash: boolean;
+    app: any;
+    owner: string;
+    appName: string;
+    path: string;
+    lastOwner: string;
+    lastName: string;
+    lastPath: string;
+    param: any;
+    refresh: any;
+    page: any;
+    hash: string[];
+    lastHash: string;
+    nextHash: string;
+    backed: boolean;
+    init: boolean;
+    opt: any;
+    pages: any;
+    vite: boolean;
+    lastPage: any;
+    lastApp: any;
+    go(url: string, param?: object, refresh?: boolean): void;
+    repairUrl(url: any): string;
+    back(param: any, refresh?: any): void;
+    loaded(p: any): any;
+    load(url: string, param: any): Promise<Object>;
+    createApp(owner: string, name: string): Promise<any>;
+    showApp(app: any): void;
+    switchApp(owner: any, name: any, path: any): Promise<boolean>;
+    getToken(owner: any, name: any): Promise<any>;
+    checkToken(owner: any, name: any, token: any): Promise<any>;
+    getCode(token: any): Promise<any>;
+    addCss(p: any): void;
+    removeCss(p: any): void;
+    routeTo(url: string, param: Object, refresh?: boolean | undefined, lastHash?: string | undefined): void;
+    to(p: any, refresh?: boolean | undefined, lastHash?: string): void;
+    parseUrl(url: string): {
+        url: string;
+    };
+    findPage(url: string, param: Object, refresh?: boolean): Object;
+    findApp(owner: string, name: string, param?: any, reload?: boolean): Object;
+    cachePage(p: Object): Router;
+    private aniPage;
+    private getCurrentPage;
+    hidePage(p: any, v: any): void;
+    onShow(p: any, lastHash: string): void;
+    showPage(p: any): void;
+    private switchPage;
+    noAni: boolean;
+    private pageEvent;
+}
+declare namespace Router {
+    export { Router as default };
+}
