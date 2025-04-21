@@ -4,13 +4,17 @@
  * Copyright © 2014-2021 Sibyl Yu
  */
 
+import {Event} from '@wiajs/core'
+import {log as Log} from '@wiajs/util'
+
+const log = Log({m: 'router'}) // 创建日志实例
+
 /** {*} */
 // @ts-ignore
 const $ = window.$
 /** {*} */
 // @ts-ignore
-const __m__ = window.__m__
-let location = window.location // eslint-disable-line
+const {location} = window // eslint-disable-line
 
 const CFG = {
   sectionGroupClass: 'page-group',
@@ -108,7 +112,7 @@ const def = {
  * router为wia应用全局应用，存在实例变量
  * 不推荐并发go，如多个页面，请在第一个页面的show或ready中，go另外一个页面！
  */
-class Router {
+export default class Router extends Event {
   _index = 1
 
   // container element
@@ -161,12 +165,13 @@ class Router {
    * @param {Opts} opts
    */
   constructor(opts) {
+    const opt = {...def, ...opts}
+    super(opt)
     // if (Router.instance) {
     //   throw new Error('Router is already initialized and can\'t be initialized more than once');
     // }
     // Router.instance = this; // 是否控制为单例？
     const _ = this
-    const opt = {...def, ...opts}
     _.opt = opt
     // this.app = this.opt.app;
     // this.app.router = this;
@@ -256,10 +261,12 @@ class Router {
     // 当前 hash
     let hash = getHash()
     /** @type {*} */
-    let param = $.urlParam() // hash 前 或 后的参数，已使用 decodeURIComponent 解码
+    let param = $.urlParam()
 
-    // 微信跳转，没有hash、有state和code（微信入口），从state中解析路由
     if (!hash && param?.state) {
+      // hash 前 或 后的参数，已使用 decodeURIComponent 解码
+
+      // 微信跳转，没有hash、有state和code（微信入口），从state中解析路由
       const {state} = param
 
       // 处理应用路由，包括登录、master-detail、缺省路由等
@@ -297,8 +304,8 @@ class Router {
       history.replaceState(null, '', url.toString()) // 更新 URL，不刷新页面
     }
 
-    // 有hash，跳过启动应用（wia store），直接进入hash指定应用（创建）
     if (hash) {
+      // 有hash，跳过启动应用（wia store），直接进入hash指定应用（创建）
       console.log('router start', {hash, param})
       // 将不合规范url修改为规范url
       const to = _.repairUrl(hash)
@@ -517,7 +524,7 @@ class Router {
       // 默认page 为 index
       if (owner && name && !path) path = 'index'
 
-      console.log('load', {owner, name, path})
+      console.log('load', {url, owner, name, path})
 
       // 加载页面必须 owner、name 和 page
       if (!owner || !name || !path) throw new Error('need owner|name|path')
@@ -562,6 +569,12 @@ class Router {
               p.appName = name
               p.url = `/${owner}/${name}/${path}`
               p.path = path
+
+              let {hash} = window.location
+              if (hash.startsWith('#')) hash = hash.substring(1)
+              if (hash.startsWith('!')) hash = hash.substring(1)
+
+              p.hash = hash
 
               this.cachePage(p) // save page instance
               resHtml(p)
@@ -1690,6 +1703,8 @@ class Router {
    * @param {*} v 卸载页面视图 $Dom
    */
   hidePage(p, v) {
+    const _ = this
+
     if (!v || !p) return
     try {
       v.removeClass(this.opt.showClass)
@@ -1698,10 +1713,16 @@ class Router {
 
       // 触发隐藏事件
       try {
-        if (p.hide) p.hide(v)
+        $.nextTick(() => {
+          const {path, param, name, title, owner, appName, url, hash} = p
+          _.emit('hide', {path, param, name, title, owner, appName, url, hash})
+
+          p?.hide(v, p.param || {})
+        })
       } catch (exp) {
         console.log('page hide exp!', {exp})
       }
+
       // this.pageEvent('hide', p, v);
 
       // 缓存当前 page
@@ -1724,6 +1745,7 @@ class Router {
    * @param {string} lastHash 前hash
    */
   onShow(p, lastHash) {
+    const _ = this
     try {
       if (!p) return
 
@@ -1736,7 +1758,7 @@ class Router {
           //  node.getBoundingClientRect().top node.offsetTop 为 0，原因未知！！！
           $.nextTick(() => {
             try {
-              p.ready(v, p.param || {}, this.backed, lastHash)
+              p.ready(v, p.param || {}, _.backed, lastHash)
             } catch (exp) {
               console.log('page ready exp!', {exp})
             }
@@ -1744,28 +1766,33 @@ class Router {
             // ready 回调函数可能会创建 page 节点，pageInit事件在ready后触发！
             // page 实例就绪时，回调页面组件的pageInit事件，执行组件实例、事件初始化等，实现组件相关功能
             // 跨页面事件，存在安全问题，所有f7组件需修脱离app，仅作为Page组件！！！
-            this.pageEvent('init', p, v)
+            _.pageEvent('init', p, v)
             $.fastLink() // 对所有 link 绑定 ontouch，消除 300ms等待
           })
         }
       }
 
       // 触发
-      if (p.back && this.backed) {
+      if (p.back && _.backed) {
         $.nextTick(() => {
           try {
+            // this.pageEvent('back', p, v);
+            const {path, param, name, title, owner, appName, url, hash} = p
+            _.emit('back', {path, param, name, title, owner, appName, url, hash})
+
             if (v.class('page-content')?.dom?.scrollTop) v.class('page-content').dom.scrollTop = p.scrollTop ?? 0
             p.back(v, p.param || {}, lastHash)
           } catch (exp) {
             console.log('page back exp!', {exp})
           }
-          // this.pageEvent('back', p, v);
         })
       }
 
-      if (p.show && !this.backed) {
+      if (p.show && !_.backed) {
         $.nextTick(() => {
           try {
+            const {path, param, name, title, owner, appName, url, hash} = p
+            _.emit('show', {path, param, name, title, owner, appName, url, hash})
             p.show(v, p.param || {}, lastHash)
           } catch (exp) {
             console.log('page show exp!', {exp})
@@ -2145,5 +2172,3 @@ async function streamToString(stream) {
 }
 
 Router.default = Router
-
-export default Router
