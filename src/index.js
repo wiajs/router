@@ -863,7 +863,7 @@ export default class Router extends Event {
           // 没有手机，则需使用手机短信验证码绑定手机
           // 已经绑定手机无需再次绑定
           if (cfg.bindMobile && !u?.mobile)
-            _.go('login', {
+            _.go('login/', {
               master,
               to,
               param,
@@ -878,7 +878,7 @@ export default class Router extends Event {
         } else if (!code && $.device.wx && cfg.wx.autoAuth) _.wxAuth(app, hash, param)
         else if (login) {
           // 非微信环境，手机验证登录进入
-          _.go('login', {
+          _.go('login/', {
             master,
             to,
             param,
@@ -1008,9 +1008,9 @@ export default class Router extends Event {
    * 获取登录token，对于需login的应用，需token调用后台接口
    * 获取有效用户身份令牌和用户信息（头像、昵称、手机号码等）
    * 用户信息保存在 $.app.user 备用！
+   * 微信飞书微软等第三方code跳转登录，有sid、code和 loginType，删除已有token
    * 优先本地获取，本地过期，或服务器user无法获取，重新获取token
    * 服务器返回token无法获取用户信息，作为无效token删除，返回空。
-   * 微信进入，有sid和code，可获取用户头像和昵称
    * 如本地有缓存token，用户无头像、昵称，则重新通过微信code、sid获取
    * 微信后台通过code获取openid，获取微信用户信息，保存到数据库
    * 微信获取图像、昵称，目前只有通过userinfo授权，否则仅获取openid
@@ -1018,7 +1018,7 @@ export default class Router extends Event {
    * @param {number} sid -  siteid
    * @param {string} code - 微信等返回的 code
    * @param {LoginType} loginType - loginType
-   * @param {string} verifier - 微信扫码登录
+   * @param {string} verifier - 飞书、微信扫码登录
    */
   async getToken(app, sid, code, loginType, verifier) {
     let R = ''
@@ -1029,41 +1029,18 @@ export default class Router extends Event {
     try {
       let token = $.store.get(cfg.token)
 
-      if (!token) {
-        // 已通过camp登录的，保持登录
-        token = $.store.get(`nuoya/camp/${cfg.token}`)
-        if (token) $.store.set(cfg.token, token)
-      }
-
-      console.log('getToken', {key: cfg.token, token})
-
-      // 存在登录令牌，获取用户信息
-      if (token) {
-        const u = $._user ? $._user : await _.getUser(app, token)
-        console.log({u}, 'getToken')
-
-        if (u) {
-          if (!$._user) $._user = u // 全局保存
-          app.user = u
-          R = token
-        } else if (u === 0) {
-          R = token
-          console.error('offline!')
-        } else {
-          $.store.remove(cfg.token)
-          console.error('token invalid, remove and getToken again!')
-        }
-      }
-
       // 通过code，重新获取 token，如微信、飞书
-      if (!R && sid && code) {
-        let type = loginType ?? LoginType.wx
+      if (sid && code && loginType) {
+        if (token) $.store.remove(cfg.token) // 重新登录，删除已有token
+
+        let type = loginType
         // @ts-ignore
         type = Number.parseInt(loginType)
 
-        const url = `${cfg[cfg.mode].api}/${opt.api.token}`
+        const url = `${cfg[cfg.mode].api}/${opt.api.login}`
         let from
         if (type === LoginType.wx && verifier) from = 'qr'
+
         if ([LoginType.ms, LoginType.fs].includes(type)) verifier = $.store.get('codeVerifier') // ms/fs PKCE 需要
 
         // 通过code login 获取 token
@@ -1076,19 +1053,45 @@ export default class Router extends Event {
 
           if (rs.code === 200 && rs.data?.token) {
             token = rs.data.token
-            $.store.set(cfg.token, token)
             const u = await _.getUser(app, token)
             if (u) {
               $._user = u // 全局保存
               $.app.user = u
+              $.store.set(cfg.token, token)
               R = token
-            } else {
-              $.store.remove(cfg.token)
-              console.error({rs}, 'getUser fail, remove token!')
-            }
+            } else token = ''
           } else console.error({rs}, 'getToken fail!')
         }
         // new Error('获取身份失败,请退出重新进入或联系客服!'), '');
+      }
+
+      // 非登录
+      if (!R) {
+        if (!token) {
+          // 已通过camp登录的，保持登录
+          token = $.store.get(`nuoya/camp/${cfg.token}`)
+          if (token) $.store.set(cfg.token, token)
+        }
+
+        console.log('getToken', {key: cfg.token, token})
+
+        // 存在登录令牌，获取用户信息
+        if (token) {
+          const u = $._user ? $._user : await _.getUser(app, token)
+          console.log({u}, 'getToken')
+
+          if (u) {
+            if (!$._user) $._user = u // 全局保存
+            app.user = u
+            R = token
+          } else if (u === 0) {
+            R = token
+            console.error('offline!')
+            } else {
+              $.store.remove(cfg.token)
+            console.error('token invalid, remove and getToken again!')
+            }
+        }
       }
 
       // this.checkToken(owner, name, tk).then(rs => {
@@ -1207,9 +1210,10 @@ export default class Router extends Event {
    * 页面插入dom， 没有调用页面中的脚本
    * 实现 按次序加载 script
    * @param {*} v - 页面视图
-   * @param {*} [last] - v 插入位置
+   * @param {boolean} ready - 第一次进入
+   * @param {boolean} [last] - v 插入位置
    */
-  addHtml(v, last = true) {
+  addHtml(v, ready, last = true) {
     let R
     const _ = this
     try {
@@ -1217,8 +1221,10 @@ export default class Router extends Event {
         if (!v) return rej()
 
         // 提取所有 script 标签
+
+        const srcs = []
+        if (ready) {
         const scripts = v.getElementsByTagName('script')
-        let srcs = []
         if (scripts.length) {
           for (const sc of Array.from(scripts)) {
             if (sc.src) {
@@ -1226,6 +1232,7 @@ export default class Router extends Event {
               sc.remove()
             }
           }
+        }
         }
 
         if (last) _.view.dom.appendChild(v)
@@ -1302,7 +1309,7 @@ export default class Router extends Event {
         if (lastHash) param.lastHash = lastHash
 
         if (!$.app.user)
-          _.go('login', {
+          _.go('login/', {
             master,
             to: url,
             param,
@@ -1328,7 +1335,7 @@ export default class Router extends Event {
             if (lastHash) param.lastHash = lastHash
 
             if (!$.app.user)
-              _.go('login', {
+              _.go('login/', {
                 master,
                 to: url,
                 param,
@@ -1435,13 +1442,13 @@ export default class Router extends Event {
                   // master 和 前页面 插到前面，master 之后
                   // this.view.dom.insertBefore(v, this.view.lastChild().dom) // 没有调用页面中的脚本
                   // this.view.children().last().before(v) // 调用页面中的脚本
-                  this.addHtml(v, false).then(() => _.showHtml(p, v, lastHash))
+                  this.addHtml(v, p.doReady, false).then(() => _.showHtml(p, v, lastHash))
                 } else {
                   if (this.opt.className) $v.addClass(`${this.opt.className}`)
                   if (this.opt.nextClass && !pm) $v.addClass(`${this.opt.nextClass}`)
                   // this.view.dom.appendChild(v) // 没有调用页面中的脚本
                   // this.view.append(v) // 调用页面中的脚本
-                  this.addHtml(v).then(() => _.showHtml(p, v, lastHash))
+                  this.addHtml(v, p.doReady).then(() => _.showHtml(p, v, lastHash))
                 }
               }
             } else this.showHtml(p, v, lastHash)
@@ -2072,6 +2079,7 @@ function loadScripts(idx, v, srcs, res) {
     return res()
   }
 
+  try {
   const script = document.createElement('script')
   script.src = srcs[idx]
   // 当前脚本加载完成后，加载下一个脚本
@@ -2085,6 +2093,9 @@ function loadScripts(idx, v, srcs, res) {
     loadScripts(idx + 1, v, srcs, res)
   }
   v.appendChild(script)
+  } catch (e) {
+    log.err(e, 'loadScripts')
+  }
 }
 
 /**
