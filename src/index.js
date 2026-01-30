@@ -769,7 +769,6 @@ export default class Router extends Event {
    * @param {*} [param]
    */
   async showApp(app, param) {
-    // biome-ignore lint/complexity/noUselessThisAlias: <explanation>
     const _ = this
     const {cfg} = app
     const {home} = cfg
@@ -1308,13 +1307,14 @@ export default class Router extends Event {
         if (refresh) param.refresh = true
         if (lastHash) param.lastHash = lastHash
 
-        if (!$.app.user)
+        // 用户是否登录，未登录，先登录
+        if (!$.app.user) {
           _.go('login/', {
             master,
             to: url,
             param,
           })
-        else if (master && !_.view.qu('.page-master')?.dom) _.go(master, {to: url, param})
+        } else if (master && !_.view.qu('.page-master')?.dom) _.go(master, {to: url, param})
         else _.to(p, refresh, lastHash)
       } else {
         if (master && !_.view.qu('.page-master')?.dom) _.go(master, {to: url, param})
@@ -1334,13 +1334,14 @@ export default class Router extends Event {
             if (refresh) param.refresh = true
             if (lastHash) param.lastHash = lastHash
 
-            if (!$.app.user)
+            // 用户是否登录，未登录，先登录
+            if (!$.app.user) {
               _.go('login/', {
                 master,
                 to: url,
                 param,
               })
-            else if (master && !_.view.qu('.page-master')?.dom) _.go(master, {to: url, param})
+            } else if (master && !_.view.qu('.page-master')?.dom) _.go(master, {to: url, param})
             else _.to(p, refresh, lastHash)
           } else {
             if (master && !_.view.qu('.page-master')?.dom) _.go(master, {to: url, param})
@@ -2066,35 +2067,112 @@ function setTitle(val) {
 }
 
 /**
- * 按顺序加载 script 标签
- * @param {number} idx
- * @param {*} v - page dom
- * @param {*[]} srcs - 脚本引用
- * @param {*} res
- * @returns
+ * 按顺序加载 script 标签（带缓存优先策略）
+ * 通过后缀 ?v=xxx  ?t=xxx 更新
+ * @param {number} idx - 当前加载索引，按次序加载
+ * @param {HTMLElement} v - 代码挂载DOM节点
+ * @param {string[]} srcs - 加载文件的URL数组
+ * @param {Function} res - 全部完成后的回调
  */
 function loadScripts(idx, v, srcs, res) {
-  if (idx >= srcs.length) {
-    // 所有脚本加载完成后退出
-    return res()
+  if (idx >= srcs.length) return res()
+
+  const src = srcs[idx]
+  const cacheKey = `wia_cache_script:${btoa(src)}` // base64
+
+  // 尝试从缓存加载
+  const loadFromCache = () => {
+  try {
+      const cachedData = localStorage.getItem(cacheKey)
+      if (!cachedData) return false
+
+      const {content, timestamp} = JSON.parse(cachedData)
+      // 缓存有效期检查（30天）
+      if (Date.now() - timestamp > 30 * 86_400_000) return false
+
+      executeScript(content, src)
+      console.log(`Loaded from cache: ${src}`)
+      return true
+    } catch (e) {
+      console.warn(`Cache read failed for ${src}`, e)
+      return false
+  }
   }
 
-  try {
-  const script = document.createElement('script')
-  script.src = srcs[idx]
-  // 当前脚本加载完成后，加载下一个脚本
-  script.onload = () => {
-    console.log(`Succed to load script: ${srcs[idx]}`)
-    loadScripts(idx + 1, v, srcs, res)
-  }
-  script.onerror = () => {
-    console.error(`Failed to load script: ${srcs[idx]}`)
-    // 即使某个脚本加载失败，也继续加载下一个脚本
-    loadScripts(idx + 1, v, srcs, res)
-  }
+  // 执行脚本内容
+  const executeScript = (content, src) => {
+    const script = document.createElement('script')
+    script.text = content // script.src = srcs[idx]
+    script.setAttribute('data-cached-src', src)
   v.appendChild(script)
+  }
+
+  // 保存到缓存
+  const saveToCache = content => {
+    try {
+      const cacheData = JSON.stringify({
+        content,
+        timestamp: Date.now(),
+      })
+      localStorage.setItem(cacheKey, cacheData)
   } catch (e) {
-    log.err(e, 'loadScripts')
+      console.warn(`Cache write failed for ${src}`, e)
+      // 清理过期缓存
+      if (e.name === 'QuotaExceededError') {
+        clearExpiredCache()
+      }
+    }
+  }
+
+  // 清理过期缓存
+  const clearExpiredCache = () => {
+    const now = Date.now()
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key.startsWith('wia_cache_script:')) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key))
+          if (now - data.timestamp > 86_400_000 * 30) {
+            // 清理30天前的缓存
+            localStorage.removeItem(key)
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // 网络加载脚本
+  const loadFromNetwork = () => {
+    fetch(src, {cache: 'reload'})
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.text()
+      })
+      .then(content => {
+        // 执行并缓存
+        executeScript(content, src)
+        saveToCache(content)
+        console.log(`Loaded from network: ${src}`)
+      })
+      .catch(e => {
+        console.error(`Network load failed: ${src}`, e)
+      })
+      .finally(() => {
+        proceedNext()
+      })
+  }
+
+  // 继续下一个脚本
+  const proceedNext = () => {
+    // 使用setTimeout避免同步递归导致的栈溢出
+    setTimeout(() => loadScripts(idx + 1, v, srcs, res), 0)
+  }
+
+  // 缓存加载失败时转网络加载
+  if (!loadFromCache()) {
+    loadFromNetwork()
+  } else {
+    proceedNext()
   }
 }
 
@@ -2109,14 +2187,31 @@ function getBaseUrl(url) {
   return pos === -1 ? url.slice(0) : url.slice(0, pos)
 }
 
+/**
+ * 路由跳转
+ * @param {string} url
+ * @param {*} param
+ * @param {*} refresh
+ */
 $.go = (url, param = null, refresh = false) => {
-  $.router.go(url, param, refresh)
+  if (url.startsWith('http://') || url.startsWith('https://')) window.open(url, '_blank')
+  else $.router.go(url, param, refresh)
 }
 
+/**
+ *
+ * @param {*} param
+ * @param {*} refresh
+ */
 $.back = (param, refresh = false) => {
   $.router.back(param, refresh)
 }
 
+/**
+ *
+ * @param {*} url
+ * @returns
+ */
 $.repairUrl = url => $.router.repairUrl(url)
 
 /**
